@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Semantic surface colors */
+  --color-page: #fafaf9;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f5f5f4;
+  --color-input-bg: #fafaf9;
+
+  /* Semantic text colors */
+  --color-heading: #1c1917;
+  --color-body: #292524;
+  --color-secondary: #78716c;
+  --color-muted: #a8a29e;
+  --color-subtle: #d6d3d1;
+
+  /* Semantic border colors */
+  --color-divider: #f5f5f4;
+  --color-divider-strong: #e7e5e4;
+  --color-input-border: #f5f5f4;
+  --color-focus-ring: #e7e5e4;
+
+  /* Primary action button */
+  --color-btn: #1c1917;
+  --color-btn-hover: #292524;
+  --color-btn-text: #ffffff;
+}
+
+.dark {
+  --color-page: #0c0a09;
+  --color-surface: #1c1917;
+  --color-surface-alt: #292524;
+  --color-input-bg: #292524;
+
+  --color-heading: #fafaf9;
+  --color-body: #e7e5e4;
+  --color-secondary: #a8a29e;
+  --color-muted: #78716c;
+  --color-subtle: #57534e;
+
+  --color-divider: #292524;
+  --color-divider-strong: #44403c;
+  --color-input-border: #44403c;
+  --color-focus-ring: #57534e;
+
+  --color-btn: #e7e5e4;
+  --color-btn-hover: #d6d3d1;
+  --color-btn-text: #1c1917;
+
+  color-scheme: dark;
+}
+
+html {
+  background-color: var(--color-page);
+  color: var(--color-body);
+}

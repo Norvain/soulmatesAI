@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user preferences and basic identity for the companion.",
+      "type": "object",
+      "properties": {
+        "preferredName": { "type": "string", "description": "How the user wants to be called." },
+        "comfortStyle": { "type": "string", "description": "How the user prefers to be comforted." }
+      },
+      "required": ["preferredName"]
+    },
+    "Character": {
+      "title": "Character",
+      "description": "The persona and settings of the AI companion.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "persona": { "type": "string" },
+        "overview": { "type": "string" },
+        "greeting": { "type": "string" },
+        "isCustom": { "type": "boolean" }
+      }
+    },
+    "ChatSession": {
+      "title": "Chat Session",
+      "type": "object",
+      "properties": {
+        "characterId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "RelationState": {
+      "title": "Relation State",
+      "description": "Tracks the evolving relationship between the user and the AI.",
+      "type": "object",
+      "properties": {
+        "intimacyScore": { "type": "number", "description": "0-1200 score of closeness." },
+        "trustScore": { "type": "number", "description": "0-1200 score of trust." },
+        "relationStage": { "type": "string", "description": "Current stage (e.g., 陌生, 了解, 熟悉, 知己/爱人)." },
+        "unlockedEvents": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Moment": {
+      "title": "Moment",
+      "description": "A social media style post from the character.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "MemoryItem": {
+      "title": "Memory Item",
+      "description": "A high-value structured memory extracted from conversations.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["preference", "event", "taboo", "relationship", "open_loop"] },
+        "summary": { "type": "string", "description": "A concise summary of the memory." },
+        "keyphrase": { "type": "string", "description": "A short phrase for quick indexing." },
+        "salience": { "type": "number", "description": "Importance score 0-1." },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "summary", "timestamp"]
+    },
+    "SessionSnapshot": {
+      "title": "Session Snapshot",
+      "description": "A summary of the last interaction to facilitate natural re-entry.",
+      "type": "object",
+      "properties": {
+        "lastScene": { "type": "string", "description": "The context of the last conversation." },
+        "lastEmotion": { "type": "string", "description": "The user's emotion at the end of the session." },
+        "unfinishedTopic": { "type": "string", "description": "A topic that was left hanging." },
+        "followupHint": { "type": "string", "description": "A hint for the AI to naturally restart the conversation." },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document."
+    },
+    "/users/{userId}/characters/{characterId}": {
+      "schema": "Character",
+      "description": "Custom characters created by the user."
+    },
+    "/users/{userId}/chats/{chatId}": {
+      "schema": "ChatSession",
+      "description": "Chat sessions with different characters."
+    },
+    "/users/{userId}/chats/{chatId}/relation/state": {
+      "schema": "RelationState",
+      "description": "The relationship state for this chat."
+    },
+    "/users/{userId}/chats/{chatId}/memories/{memoryId}": {
+      "schema": "MemoryItem",
+      "description": "Individual memory items for this chat."
+    },
+    "/users/{userId}/chats/{chatId}/moments/{momentId}": {
+      "schema": "Moment",
+      "description": "Social media posts from the character."
+    },
+    "/users/{userId}/chats/{chatId}/snapshots/last": {
+      "schema": "SessionSnapshot",
+      "description": "The most recent session snapshot for this chat."
+    },
+    "/users/{userId}/chats/{chatId}/messages/{messageId}": {
+      "schema": "object",
+      "description": "Messages in this chat."
+    }
+  }
+}
