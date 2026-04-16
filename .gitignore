@@ -15,3 +15,4 @@ generated-media/
 backups/
 *.pem
 *.key
+docs/
