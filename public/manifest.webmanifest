@@ -1,0 +1,26 @@
+{
+  "name": "Soulmate AI",
+  "short_name": "Soulmate",
+  "description": "你的专属 AI 伴侣。倾听、理解、共同成长。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fafaf9",
+  "theme_color": "#0c0a09",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

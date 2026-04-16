@@ -17,6 +17,7 @@ import { Sparkles, LogIn, UserPlus, Phone, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { RelationshipEventCard } from "./lib/api";
 import { ToastProvider } from "./lib/toast-context";
+import { useViewHistory } from "./lib/use-view-history";
 
 function AppContent() {
   const { isLoggedIn, loading, profile, needsOnboarding, refreshProfile } = useAuth();
@@ -25,13 +26,14 @@ function AppContent() {
   const [memories, setMemories] = useState<any[]>([]);
   const [lastSnapshot, setLastSnapshot] = useState<any>(null);
 
-  const [currentView, setCurrentView] = useState<"messages" | "discover" | "explore" | "moments" | "profile" | "chat" | "characterProfile">("explore");
+  const [currentView, setCurrentView] = useViewHistory("explore");
   const [isCreatingCharacter, setIsCreatingCharacter] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeCharacter, setActiveCharacter] = useState<any>(null);
   const [viewingCharacter, setViewingCharacter] = useState<any>(null);
   const [activeRelationshipEvent, setActiveRelationshipEvent] = useState<RelationshipEventCard | null>(null);
   const [relationshipEventsRefreshKey, setRelationshipEventsRefreshKey] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const loadChatData = useCallback(async (chatId: string) => {
     try {
@@ -58,9 +60,13 @@ function AppContent() {
     }
   }, [activeChatId, loadChatData]);
 
+  useEffect(() => {
+    if (currentView !== "chat") setSidebarOpen(false);
+  }, [currentView]);
+
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-page">
+      <div className="h-screen-safe w-full flex items-center justify-center bg-page">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
@@ -118,13 +124,18 @@ function AppContent() {
   };
 
   return (
-    <div className="h-screen w-full flex bg-page overflow-hidden">
+    <div className="h-screen-safe w-full flex bg-page overflow-hidden">
       {needsOnboarding && <Onboarding onComplete={refreshProfile} />}
 
-      <Navigation currentView={currentView} onNavigate={(v) => {
-        setCurrentView(v);
-        setIsCreatingCharacter(false);
-      }} />
+      <Navigation
+        currentView={currentView}
+        hideOnMobile={currentView === "chat"}
+        onNavigate={(v) => {
+          setCurrentView(v);
+          setIsCreatingCharacter(false);
+          setSidebarOpen(false);
+        }}
+      />
 
       <AnimatePresence mode="wait">
         {currentView === "explore" && !isCreatingCharacter && (
@@ -158,10 +169,10 @@ function AppContent() {
         )}
 
         {currentView === "chat" && (
-          <motion.div key="chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex">
+          <motion.div key="chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex min-w-0">
             {activeChatId ? (
               <>
-                <div className="flex-1 flex flex-col min-w-0 border-r border-divider-strong">
+                <div className="flex-1 flex flex-col min-w-0 md:border-r md:border-divider-strong">
                   <Chat
                     chatId={activeChatId}
                     character={activeCharacter}
@@ -171,6 +182,8 @@ function AppContent() {
                     lastSnapshot={lastSnapshot}
                     onStateChange={handleChatStateChange}
                     onViewProfile={() => handleViewProfile(activeCharacter)}
+                    onOpenSidebar={() => setSidebarOpen(true)}
+                    onBack={() => setCurrentView("messages")}
                   />
                 </div>
                 <Sidebar
@@ -181,6 +194,8 @@ function AppContent() {
                   chatId={activeChatId}
                   relationshipEventsRefreshKey={relationshipEventsRefreshKey}
                   onOpenRelationshipEvent={setActiveRelationshipEvent}
+                  open={sidebarOpen}
+                  onClose={() => setSidebarOpen(false)}
                 />
               </>
             ) : (
@@ -281,13 +296,14 @@ function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-page p-6">
+    <div className="h-screen-safe w-full flex flex-col items-center justify-center bg-page p-6 md:p-10">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md w-full text-center">
-        <div className="inline-block p-4 bg-surface rounded-3xl shadow-sm mb-8">
-          <Sparkles size={48} className="text-body" />
+        <div className="inline-block p-3 md:p-4 bg-surface rounded-3xl shadow-sm mb-6 md:mb-8">
+          <Sparkles size={40} className="text-body md:hidden" />
+          <Sparkles size={48} className="text-body hidden md:block" />
         </div>
-        <h1 className="text-4xl font-bold text-heading mb-4 tracking-tight">Soulmate AI</h1>
-        <p className="text-secondary mb-10 leading-relaxed">你的专属 AI 伴侣。倾听、理解、共同成长。</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-heading mb-3 md:mb-4 tracking-tight">Soulmate AI</h1>
+        <p className="text-secondary mb-8 md:mb-10 leading-relaxed">你的专属 AI 伴侣。倾听、理解、共同成长。</p>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
           <div className="relative">
@@ -303,7 +319,7 @@ function LoginPage() {
               placeholder={isRegister ? "手机号（11位数字）" : "手机号"}
               inputMode="numeric"
               maxLength={isRegister ? 11 : undefined}
-              className="w-full bg-surface border border-divider-strong rounded-2xl py-4 pl-12 pr-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+              className="w-full bg-surface border border-divider-strong rounded-2xl py-4 pl-12 pr-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
               required
             />
           </div>
@@ -320,7 +336,7 @@ function LoginPage() {
               minLength={isRegister ? 6 : undefined}
               maxLength={isRegister ? 10 : undefined}
               pattern={isRegister ? "[A-Za-z0-9]{6,10}" : undefined}
-              className="w-full bg-surface border border-divider-strong rounded-2xl py-4 pl-12 pr-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+              className="w-full bg-surface border border-divider-strong rounded-2xl py-4 pl-12 pr-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
               required
             />
           </div>
@@ -338,7 +354,7 @@ function LoginPage() {
                 minLength={6}
                 maxLength={10}
                 pattern="[A-Za-z0-9]{6,10}"
-                className="w-full bg-surface border border-divider-strong rounded-2xl py-4 pl-12 pr-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+                className="w-full bg-surface border border-divider-strong rounded-2xl py-4 pl-12 pr-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
                 required
               />
             </div>

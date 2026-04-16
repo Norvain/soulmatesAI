@@ -179,15 +179,15 @@ export default function CreateCharacter({ onBack, onCreated }: CreateCharacterPr
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-page p-10">
+    <div className="flex-1 overflow-y-auto bg-page p-4 md:p-10 pb-24 md:pb-10">
       <div className="max-w-4xl mx-auto">
-        <button onClick={onBack} className="flex items-center text-secondary hover:text-body transition-colors mb-8">
+        <button onClick={onBack} className="flex items-center text-secondary hover:text-body transition-colors mb-4 md:mb-8 py-1">
           <ArrowLeft size={20} className="mr-2" />
           返回发现
         </button>
 
         {/* ─── Idea Jar Section ─── */}
-        <div className="bg-surface rounded-3xl p-8 shadow-sm border border-divider mb-8">
+        <div className="bg-surface rounded-3xl p-5 md:p-8 shadow-sm border border-divider mb-6 md:mb-8">
           <div className="flex items-center space-x-3 mb-6">
             <JarIcon className="w-8 h-8 text-violet-500" />
             <h2 className="text-xl font-bold text-heading">想法储存罐</h2>
@@ -308,13 +308,13 @@ export default function CreateCharacter({ onBack, onCreated }: CreateCharacterPr
         </div>
 
         {/* ─── Character Form ─── */}
-        <div className="bg-surface rounded-3xl p-10 shadow-sm border border-divider">
-          <h1 className="text-3xl font-bold text-heading mb-2">创建专属伴侣</h1>
-          <p className="text-secondary mb-10">定义你新 AI 伴侣的性格、外貌和行为方式。</p>
+        <div className="bg-surface rounded-3xl p-5 md:p-10 shadow-sm border border-divider">
+          <h1 className="text-2xl md:text-3xl font-bold text-heading mb-2">创建专属伴侣</h1>
+          <p className="text-secondary mb-6 md:mb-10 text-sm md:text-base">定义你新 AI 伴侣的性格、外貌和行为方式。</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
             <div className="col-span-1 flex flex-col items-center space-y-4">
-              <div className="w-48 h-48 rounded-3xl overflow-hidden bg-surface-alt border-2 border-dashed border-divider-strong flex items-center justify-center relative">
+              <div className="w-40 h-40 md:w-48 md:h-48 rounded-3xl overflow-hidden bg-surface-alt border-2 border-dashed border-divider-strong flex items-center justify-center relative">
                 {formData.avatarUrl ? (
                   <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -345,7 +345,7 @@ export default function CreateCharacter({ onBack, onCreated }: CreateCharacterPr
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="例如：林星"
-                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
                 />
               </div>
               <div>
@@ -355,7 +355,7 @@ export default function CreateCharacter({ onBack, onCreated }: CreateCharacterPr
                   value={formData.overview}
                   onChange={(e) => setFormData({ ...formData, overview: e.target.value })}
                   placeholder="例如：一个机智幽默、热爱科幻的朋友。"
-                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
                 />
               </div>
               <div>
@@ -365,7 +365,7 @@ export default function CreateCharacter({ onBack, onCreated }: CreateCharacterPr
                   onChange={(e) => setFormData({ ...formData, persona: e.target.value })}
                   placeholder="描述他们的说话方式、关心什么，以及应该如何对待你..."
                   rows={4}
-                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-body focus:ring-2 focus:ring-focus-ring transition-all resize-none"
+                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all resize-none"
                 />
               </div>
               <div>
@@ -375,7 +375,7 @@ export default function CreateCharacter({ onBack, onCreated }: CreateCharacterPr
                   value={formData.greeting}
                   onChange={(e) => setFormData({ ...formData, greeting: e.target.value })}
                   placeholder="例如：你终于来了，等你好久了。"
-                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+                  className="w-full bg-input-bg border border-input-border rounded-xl py-3 px-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
                 />
               </div>
               <div className="pt-6 border-t border-divider flex justify-end">

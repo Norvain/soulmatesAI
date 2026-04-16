@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Camera, Mic, Volume2, Square, Bookmark, Loader2, X } from "lucide-react";
+import { Send, Sparkles, Camera, Mic, Volume2, Square, Bookmark, Loader2, X, ArrowLeft, Info } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn, compressImage } from "../lib/utils";
 import {
@@ -11,6 +11,7 @@ import {
   saveInteractionMoment,
   sendMessage,
 } from "../lib/api";
+import { useSwipeBack } from "../lib/use-swipe-back";
 import { useToast } from "../lib/toast-context";
 
 interface ISpeechRecognition extends EventTarget {
@@ -68,6 +69,8 @@ interface ChatProps {
   lastSnapshot: any;
   onStateChange?: () => void;
   onViewProfile?: () => void;
+  onOpenSidebar?: () => void;
+  onBack?: () => void;
 }
 
 const EMPTY_RUNTIME: ChatRuntimeState = {
@@ -130,6 +133,8 @@ export default function Chat({
   character,
   onStateChange,
   onViewProfile,
+  onOpenSidebar,
+  onBack,
 }: ChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -144,6 +149,11 @@ export default function Chat({
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
   const [savingMoment, setSavingMoment] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
+
+  useSwipeBack({
+    enabled: Boolean(onBack),
+    onBack: () => onBack?.(),
+  });
   const [showAtMenu, setShowAtMenu] = useState(false);
   const [chatMoments, setChatMoments] = useState<InteractionMoment[]>([]);
   const [selectedMomentContext, setSelectedMomentContext] = useState<string | null>(null);
@@ -524,17 +534,37 @@ export default function Chat({
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-page/50">
-      <div className="px-6 py-4 bg-surface border-b border-divider flex items-center space-x-4">
+      <div className="px-4 md:px-6 py-3 md:py-4 bg-surface border-b border-divider flex items-center space-x-3 md:space-x-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="md:hidden shrink-0 p-2 -ml-2 rounded-full hover:bg-surface-alt text-body"
+            aria-label="返回"
+          >
+            <ArrowLeft size={22} />
+          </button>
+        )}
         <img
           src={character?.avatarUrl || character?.avatar_url || ""}
           alt={character?.name}
-          className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+          className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity shrink-0"
           onClick={onViewProfile}
         />
-        <div>
-          <h2 className="font-bold text-body">{character?.name || "伴侣"}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-body truncate">{character?.name || "伴侣"}</h2>
           <p className="text-xs text-secondary truncate max-w-md">{character?.overview}</p>
         </div>
+        {onOpenSidebar && (
+          <button
+            type="button"
+            onClick={onOpenSidebar}
+            className="md:hidden shrink-0 p-2 -mr-2 rounded-full hover:bg-surface-alt text-body"
+            aria-label="查看关系信息"
+          >
+            <Info size={22} />
+          </button>
+        )}
       </div>
 
       <AnimatePresence>
@@ -552,7 +582,7 @@ export default function Chat({
       </AnimatePresence>
 
       <div className="flex-1 min-h-0 relative">
-        <div ref={scrollRef} className="h-full overflow-y-auto p-6 space-y-6 scrollbar-hide">
+        <div ref={scrollRef} className="h-full overflow-y-auto px-3 py-4 md:p-6 space-y-6 scrollbar-hide">
           {messages.map((message, index) => {
             const showTimestamp = shouldShowMessageGroupTimestamp(messages[index - 1], message);
 
@@ -808,7 +838,7 @@ export default function Chat({
         )}
       </div>
 
-      <div className="p-4 bg-surface border-t border-divider relative">
+      <div className="px-3 md:px-4 pt-3 md:pt-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:pb-4 bg-surface border-t border-divider relative">
         <AnimatePresence>
           {showSuggestions && suggestions.length > 0 && (
             <motion.div
@@ -946,7 +976,7 @@ export default function Chat({
               readOnly={isRecording}
               placeholder={isRecording ? "正在聆听..." : `发消息给 ${character?.name || "..."}  (输入 @ 引用记忆)`}
               className={cn(
-                "w-full border-none rounded-full py-3 pl-6 pr-14 text-sm focus:ring-2 transition-all",
+                "w-full border-none rounded-full py-3 pl-5 md:pl-6 pr-14 text-base md:text-sm focus:ring-2 transition-all",
                 isRecording ? "bg-red-50 focus:ring-red-200 text-red-800" : "bg-input-bg focus:ring-focus-ring"
               )}
             />

@@ -11,3 +11,12 @@ createRoot(document.getElementById('root')!).render(
     </ThemeProvider>
   </StrictMode>,
 );
+
+const viteEnv = (import.meta as unknown as { env?: { PROD?: boolean } }).env;
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator && viteEnv?.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .catch((error) => console.warn("SW registration failed:", error));
+  });
+}

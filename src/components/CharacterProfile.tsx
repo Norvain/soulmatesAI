@@ -35,7 +35,7 @@ export default function CharacterProfile({ character, onBack, onChat }: Characte
     <div className="flex-1 overflow-y-auto bg-surface-alt">
       {/* Background + Avatar Header */}
       <div className="relative">
-        <div className="h-56 bg-gradient-to-br from-stone-700 to-stone-900 relative">
+        <div className="h-48 md:h-56 bg-gradient-to-br from-stone-700 to-stone-900 relative">
           <img
             src={avatarUrl}
             alt=""
@@ -43,27 +43,28 @@ export default function CharacterProfile({ character, onBack, onChat }: Characte
           />
           <button
             onClick={onBack}
-            className="absolute top-4 left-4 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors z-10"
+            className="absolute top-3 left-3 md:top-4 md:left-4 p-2.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors z-10"
+            aria-label="返回"
           >
             <ArrowLeft size={20} />
           </button>
         </div>
 
-        <div className="relative -mt-16 px-6 flex items-end space-x-4">
+        <div className="relative -mt-14 md:-mt-16 px-4 md:px-6 flex items-end space-x-4">
           <img
             src={avatarUrl}
             alt={name}
-            className="w-24 h-24 rounded-2xl object-cover border-4 border-surface shadow-lg shrink-0"
+            className="w-20 h-20 md:w-24 md:h-24 rounded-2xl object-cover border-4 border-surface shadow-lg shrink-0"
           />
           <div className="pb-2 flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-heading">{name}</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-heading truncate">{name}</h1>
             <p className="text-secondary text-sm mt-1 line-clamp-2">{overview}</p>
           </div>
         </div>
       </div>
 
       {/* Info + Actions */}
-      <div className="px-6 pt-4 pb-2">
+      <div className="px-4 md:px-6 pt-4 pb-2">
         {persona && (
           <div className="bg-surface rounded-xl p-4 mb-4">
             <p className="text-secondary text-xs font-medium uppercase tracking-wider mb-2">性格特点</p>
@@ -81,7 +82,7 @@ export default function CharacterProfile({ character, onBack, onChat }: Characte
       </div>
 
       {/* Moments section */}
-      <div className="px-6 pb-20">
+      <div className="px-4 md:px-6 pb-24 md:pb-20">
         <h2 className="text-lg font-bold text-body mb-4">朋友圈</h2>
 
         {loading ? (

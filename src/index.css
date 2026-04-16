@@ -52,7 +52,38 @@
   color-scheme: dark;
 }
 
-html {
+:root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+  --safe-right: env(safe-area-inset-right);
+}
+
+html,
+body {
   background-color: var(--color-page);
   color: var(--color-body);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.h-screen-safe {
+  height: 100dvh;
+}
+
+.min-h-screen-safe {
+  min-height: 100dvh;
+}
+
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
 }

@@ -28,11 +28,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-stone-900 flex items-center justify-center p-6 z-50">
+    <div className="fixed inset-0 bg-stone-900 flex items-center justify-center p-4 md:p-6 z-50">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-surface rounded-3xl p-8 shadow-2xl"
+        className="max-w-md w-full bg-surface rounded-3xl p-6 md:p-8 shadow-2xl max-h-[90dvh] overflow-y-auto"
       >
         <div className="flex justify-center mb-6">
           <div className="p-3 bg-surface-alt rounded-2xl text-body">
@@ -54,7 +54,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 value={data.preferredName}
                 onChange={(e) => setData({ ...data, preferredName: e.target.value })}
                 placeholder="您的名字..."
-                className="w-full bg-input-bg border-input-border rounded-xl py-3 px-4 text-body focus:ring-2 focus:ring-focus-ring transition-all"
+                className="w-full bg-input-bg border-input-border rounded-xl py-3 px-4 text-base text-body focus:ring-2 focus:ring-focus-ring transition-all"
               />
             </motion.div>
           )}

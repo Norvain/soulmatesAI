@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Brain, CheckCircle2, Heart, Lock, Play, RotateCcw, Sparkles, Star } from "lucide-react";
+import { Brain, CheckCircle2, Heart, Lock, Play, RotateCcw, Sparkles, Star, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
 import { getRelationshipEvents, RelationshipEventCard } from "../lib/api";
@@ -12,6 +12,8 @@ interface SidebarProps {
   chatId?: string;
   relationshipEventsRefreshKey?: number;
   onOpenRelationshipEvent?: (event: RelationshipEventCard) => void;
+  open?: boolean;
+  onClose?: () => void;
 }
 
 export default function Sidebar({
@@ -21,6 +23,8 @@ export default function Sidebar({
   chatId,
   relationshipEventsRefreshKey = 0,
   onOpenRelationshipEvent,
+  open = false,
+  onClose,
 }: SidebarProps) {
   const intimacy = relationState?.intimacyScore || relationState?.intimacy_score || 0;
   const trust = relationState?.trustScore || relationState?.trust_score || 0;
@@ -110,8 +114,32 @@ export default function Sidebar({
   };
 
   return (
-    <div className="w-80 h-full bg-surface border-l border-divider flex flex-col p-6 overflow-y-auto scrollbar-hide shrink-0">
-      <div className="flex items-center space-x-4 mb-8">
+    <>
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-30"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={cn(
+          "bg-surface border-l border-divider flex flex-col p-6 overflow-y-auto scrollbar-hide",
+          "md:static md:w-80 md:h-full md:shrink-0 md:translate-x-0 md:shadow-none",
+          "fixed inset-y-0 right-0 w-[88vw] max-w-sm z-40 shadow-2xl transition-transform duration-300 ease-out",
+          open ? "translate-x-0" : "translate-x-full md:translate-x-0"
+        )}
+        aria-hidden={!open}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="md:hidden absolute top-4 right-4 p-2 rounded-full hover:bg-surface-alt text-muted"
+          aria-label="关闭"
+        >
+          <X size={20} />
+        </button>
+      <div className="flex items-center space-x-4 mb-8 pr-10 md:pr-0">
         {character ? (
           <img src={character.avatarUrl || character.avatar_url} alt={character.name} className="w-12 h-12 rounded-full object-cover" />
         ) : (
@@ -217,6 +245,7 @@ export default function Sidebar({
           )}
         </div>
       )}
-    </div>
+      </aside>
+    </>
   );
 }

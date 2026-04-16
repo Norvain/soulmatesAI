@@ -115,10 +115,10 @@ export default function DiscoverExplore({ onSelectCharacter, onViewProfile }: Di
 
   return (
     <div className="flex-1 overflow-y-auto bg-page dark:bg-gradient-to-b dark:from-[#0f0e1a] dark:via-[#151427] dark:to-[#1a1830]">
-      <div className="max-w-2xl mx-auto px-6 py-8">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-6 md:py-8 pb-24 md:pb-12">
 
         {/* Header */}
-        <h1 className="text-3xl font-bold text-heading mb-6 tracking-tight">角色探索</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-heading mb-4 md:mb-6 tracking-tight">角色探索</h1>
 
         {/* Search Bar */}
         <div className="relative mb-6">
@@ -128,7 +128,7 @@ export default function DiscoverExplore({ onSelectCharacter, onViewProfile }: Di
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="寻找推荐角色..."
-            className="w-full bg-input-bg dark:bg-white/10 backdrop-blur-sm border border-divider dark:border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-body dark:text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+            className="w-full bg-input-bg dark:bg-white/10 backdrop-blur-sm border border-divider dark:border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-base text-body dark:text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
           />
         </div>
 

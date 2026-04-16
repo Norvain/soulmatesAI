@@ -9,6 +9,7 @@ export type ViewType = "messages" | "discover" | "explore" | "moments" | "profil
 interface NavigationProps {
   currentView: ViewType;
   onNavigate: (view: ViewType) => void;
+  hideOnMobile?: boolean;
 }
 
 const UNREAD_POLL_INTERVAL = 5_000;
@@ -17,7 +18,7 @@ const THEME_CYCLE: Array<"light" | "dark" | "system"> = ["light", "dark", "syste
 const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor };
 const THEME_LABELS = { light: "浅色", dark: "深色", system: "跟随系统" };
 
-export default function Navigation({ currentView, onNavigate }: NavigationProps) {
+export default function Navigation({ currentView, onNavigate, hideOnMobile = false }: NavigationProps) {
   const { mode, setMode } = useTheme();
   const [momentsUnreadCount, setMomentsUnreadCount] = useState(0);
   const [messagesUnreadCount, setMessagesUnreadCount] = useState(0);
@@ -43,73 +44,68 @@ export default function Navigation({ currentView, onNavigate }: NavigationProps)
     if (currentView === "moments") setMomentsUnreadCount(0);
   }, [currentView]);
 
+  const isMessagesActive = currentView === "messages" || currentView === "chat";
+
   return (
-    <div className="w-20 h-full bg-stone-900 dark:bg-stone-950 flex flex-col items-center py-8 justify-between shrink-0">
-      <div className="space-y-6 flex flex-col items-center w-full">
-        <div className="w-10 h-10 bg-stone-800 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg">
+    <nav
+      className={cn(
+        "bg-stone-900 dark:bg-stone-950 shrink-0 z-30",
+        "fixed bottom-0 inset-x-0 h-16 flex flex-row items-center justify-around pb-[env(safe-area-inset-bottom)]",
+        "md:static md:w-20 md:h-full md:flex-col md:justify-between md:py-8 md:pb-8",
+        hideOnMobile && "hidden md:flex"
+      )}
+    >
+      <div className="hidden md:block">
+        <div className="w-10 h-10 bg-stone-800 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4 shadow-lg mx-auto">
           S
         </div>
+      </div>
 
-        <button
+      <div className="flex flex-row md:flex-col items-center justify-around md:justify-start w-full md:space-y-4 px-1">
+        <TabButton
+          icon={MessageCircle}
+          label="消息"
+          badge={messagesUnreadCount}
+          active={isMessagesActive}
           onClick={() => onNavigate("messages")}
-          className={cn("p-3 rounded-xl transition-all flex flex-col items-center space-y-1 w-full relative", (currentView === "messages" || currentView === "chat") ? "text-white" : "text-stone-400 hover:text-stone-200")}
-          title="消息"
-        >
-          <div className="relative">
-            <MessageCircle size={24} />
-            {messagesUnreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-                {messagesUnreadCount >= 10 ? "…" : messagesUnreadCount}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px]">消息</span>
-        </button>
-
-        <button
+        />
+        <TabButton
+          icon={Compass}
+          label="发现"
+          active={currentView === "discover"}
           onClick={() => onNavigate("discover")}
-          className={cn("p-3 rounded-xl transition-all flex flex-col items-center space-y-1 w-full", currentView === "discover" ? "text-white" : "text-stone-400 hover:text-stone-200")}
-          title="发现"
-        >
-          <Compass size={24} />
-          <span className="text-[10px]">发现</span>
-        </button>
+        />
 
         <button
           onClick={() => onNavigate("explore")}
-          className={cn("p-3 rounded-full transition-all flex items-center justify-center bg-indigo-500 text-white shadow-lg hover:bg-indigo-400 my-2", currentView === "explore" ? "ring-4 ring-indigo-500/30" : "")}
+          className={cn(
+            "shrink-0 rounded-full transition-all flex items-center justify-center bg-indigo-500 text-white shadow-lg hover:bg-indigo-400",
+            "p-2.5 md:p-3 md:my-2",
+            currentView === "explore" ? "ring-4 ring-indigo-500/30" : ""
+          )}
           title="探索角色"
+          aria-label="探索角色"
         >
-          <Plus size={24} />
+          <Plus size={22} className="md:hidden" />
+          <Plus size={24} className="hidden md:block" />
         </button>
 
-        <button
+        <TabButton
+          icon={Aperture}
+          label="朋友圈"
+          badge={momentsUnreadCount}
+          active={currentView === "moments"}
           onClick={() => onNavigate("moments")}
-          className={cn("p-3 rounded-xl transition-all flex flex-col items-center space-y-1 w-full relative", currentView === "moments" ? "text-white" : "text-stone-400 hover:text-stone-200")}
-          title="朋友圈"
-        >
-          <div className="relative">
-            <Aperture size={24} />
-            {momentsUnreadCount > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-                {momentsUnreadCount >= 10 ? "…" : momentsUnreadCount}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px]">朋友圈</span>
-        </button>
-
-        <button
+        />
+        <TabButton
+          icon={User}
+          label="我的"
+          active={currentView === "profile"}
           onClick={() => onNavigate("profile")}
-          className={cn("p-3 rounded-xl transition-all flex flex-col items-center space-y-1 w-full", currentView === "profile" ? "text-white" : "text-stone-400 hover:text-stone-200")}
-          title="我的"
-        >
-          <User size={24} />
-          <span className="text-[10px]">我的</span>
-        </button>
+        />
       </div>
 
-      <div className="space-y-4 flex flex-col items-center">
+      <div className="hidden md:flex md:flex-col md:items-center md:space-y-4">
         <button
           onClick={() => {
             const idx = THEME_CYCLE.indexOf(mode);
@@ -128,6 +124,39 @@ export default function Navigation({ currentView, onNavigate }: NavigationProps)
           <LogOut size={20} />
         </button>
       </div>
-    </div>
+    </nav>
+  );
+}
+
+interface TabButtonProps {
+  icon: React.ComponentType<{ size?: number }>;
+  label: string;
+  active: boolean;
+  badge?: number;
+  onClick: () => void;
+}
+
+function TabButton({ icon: Icon, label, active, badge = 0, onClick }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center justify-center transition-all shrink-0",
+        "py-2 px-3 md:p-3 md:w-full md:space-y-1 rounded-xl",
+        active ? "text-white" : "text-stone-400 hover:text-stone-200"
+      )}
+      title={label}
+      aria-label={label}
+    >
+      <div className="relative">
+        <Icon size={22} />
+        {badge > 0 && (
+          <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+            {badge >= 10 ? "…" : badge}
+          </span>
+        )}
+      </div>
+      <span className="text-[10px] mt-0.5 md:mt-1">{label}</span>
+    </button>
   );
 }

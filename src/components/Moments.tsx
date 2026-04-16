@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, MessageCircle, Camera, AtSign, X } from "lucide-react";
+import { Heart, MessageCircle, Camera, AtSign, X, Loader2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { compressImage } from "../lib/utils";
+import { usePullToRefresh } from "../lib/use-pull-to-refresh";
 import {
   createMoment,
   getMomentConnectedCharacters,
@@ -107,6 +108,16 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
     const timer = setInterval(fetchMoments, POLL_INTERVAL);
     return () => clearInterval(timer);
   }, [fetchMoments]);
+
+  const {
+    pullDistance,
+    refreshing,
+    bind: pullBind,
+  } = usePullToRefresh({
+    onRefresh: async () => {
+      await fetchMoments().catch(console.error);
+    },
+  });
 
   const handleLike = async (moment: Moment) => {
     try {
@@ -241,10 +252,29 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-surface-alt">
+    <div ref={pullBind.ref} className="flex-1 overflow-y-auto bg-surface-alt overscroll-contain">
+      <div
+        className="md:hidden flex justify-center items-center text-white/90 text-xs pointer-events-none"
+        style={{
+          height: pullDistance,
+          opacity: Math.min(pullDistance / 64, 1),
+          transition: refreshing ? undefined : "height 200ms ease, opacity 200ms ease",
+        }}
+        aria-hidden={pullDistance === 0}
+      >
+        {refreshing ? (
+          <span className="inline-flex items-center gap-1">
+            <Loader2 size={14} className="animate-spin" /> 正在刷新
+          </span>
+        ) : pullDistance >= 64 ? (
+          "松开刷新"
+        ) : (
+          pullDistance > 0 ? "下拉刷新" : null
+        )}
+      </div>
       {/* Cover section */}
       <div
-        className="h-64 bg-stone-800 relative cursor-pointer group"
+        className="h-48 md:h-64 bg-stone-800 relative cursor-pointer group"
         onClick={() => fileInputRef.current?.click()}
       >
         <img
@@ -287,7 +317,7 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
       </div>
 
       {/* Moments list */}
-      <div className="max-w-2xl mx-auto -mt-10 pb-20 px-4">
+      <div className="max-w-2xl mx-auto -mt-10 pb-24 md:pb-20 px-3 md:px-4">
         <div className="relative rounded-[28px] border border-divider bg-surface shadow-sm px-5 py-5 mb-8">
           <div className="flex items-start space-x-3">
             <div className="w-11 h-11 rounded-2xl bg-surface-alt overflow-hidden flex items-center justify-center text-secondary font-bold shrink-0">

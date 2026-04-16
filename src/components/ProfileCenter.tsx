@@ -11,11 +11,15 @@ import {
   Clock,
   Crown,
   Heart,
+  LogOut,
   MessageCircle,
   MessageSquare,
+  Monitor,
+  Moon,
   Phone,
   Settings,
   Sparkles,
+  Sun,
   Eye,
   Trash2,
   User,
@@ -27,6 +31,7 @@ import {
   getCharacters,
   getChats,
   getInteractionMoments,
+  logout,
   toggleInteractionMomentFavorite,
   updateAvatarImage,
   updatePreferences,
@@ -34,7 +39,12 @@ import {
   updateProactiveSettings,
 } from "../lib/api";
 import { cn, compressImage } from "../lib/utils";
+import { useTheme } from "../lib/theme-context";
 import { useToast } from "../lib/toast-context";
+
+const THEME_CYCLE: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
+const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor };
+const THEME_LABELS = { light: "浅色模式", dark: "深色模式", system: "跟随系统" };
 
 interface ProfileCenterProps {
   profile: any;
@@ -132,6 +142,8 @@ function timeValueToMinutes(value: string) {
 
 export default function ProfileCenter({ profile, onProfileUpdated }: ProfileCenterProps) {
   const { showToast } = useToast();
+  const { mode, setMode } = useTheme();
+  const ThemeIcon = THEME_ICONS[mode];
   const [view, setView] = useState<ProfileView>("root");
   const [characters, setCharacters] = useState<any[]>([]);
   const [moments, setMoments] = useState<InteractionMoment[]>([]);
@@ -458,7 +470,7 @@ export default function ProfileCenter({ profile, onProfileUpdated }: ProfileCent
         : false;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-page p-10">
+    <div className="flex-1 overflow-y-auto bg-page p-4 md:p-10 pb-24 md:pb-10">
       <div className="max-w-3xl mx-auto">
         {view === "root" && (
           <>
@@ -579,6 +591,44 @@ export default function ProfileCenter({ profile, onProfileUpdated }: ProfileCent
                   </div>
                 </div>
               </button>
+
+              <div className="md:hidden space-y-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const idx = THEME_CYCLE.indexOf(mode);
+                    setMode(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
+                  }}
+                  className="w-full bg-surface rounded-3xl border border-divider px-6 py-5 text-left shadow-sm hover:border-divider-strong transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-center shrink-0">
+                      <ThemeIcon size={22} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-body">外观</h3>
+                      <p className="text-sm text-secondary mt-1">{THEME_LABELS[mode]}（点击切换）</p>
+                    </div>
+                    <ChevronRight size={18} className="text-muted shrink-0" />
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="w-full bg-surface rounded-3xl border border-divider px-6 py-5 text-left shadow-sm hover:border-rose-200 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                      <LogOut size={22} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-rose-500">退出登录</h3>
+                      <p className="text-sm text-secondary mt-1">清除本地凭据，返回登录页</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
           </>
         )}

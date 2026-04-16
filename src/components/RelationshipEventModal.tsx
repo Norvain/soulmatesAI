@@ -453,7 +453,7 @@ export default function RelationshipEventModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 md:p-6"
+          className="fixed inset-0 z-[70] bg-black/55 backdrop-blur-sm flex items-center justify-center md:p-6"
           onClick={(event) => closeIfAllowed(event)}
         >
           <motion.div
@@ -462,16 +462,16 @@ export default function RelationshipEventModal({
             exit={{ opacity: 0, y: 20, scale: 0.98 }}
             transition={{ duration: 0.18 }}
             onClick={(currentEvent) => currentEvent.stopPropagation()}
-            className="w-full max-w-5xl h-[88vh] rounded-[32px] overflow-hidden bg-page shadow-2xl border border-white/10 flex flex-col"
+            className="w-full h-[100dvh] md:h-[88vh] md:max-w-5xl md:rounded-[32px] rounded-none overflow-hidden bg-page shadow-2xl border border-white/10 flex flex-col"
           >
-            <div className="relative h-44 shrink-0">
+            <div className="relative h-36 md:h-44 shrink-0 pt-[env(safe-area-inset-top)]">
               <img
                 src={activeCard?.cover_image_url || event.cover_image_url}
                 alt={activeCard?.title || event.title}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/35 to-black/10" />
-              <div className="absolute inset-x-0 top-0 p-5 flex items-center justify-between">
+              <div className="absolute inset-x-0 top-0 mt-[env(safe-area-inset-top)] p-4 md:p-5 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={(event) => closeIfAllowed(event)}
@@ -492,20 +492,20 @@ export default function RelationshipEventModal({
                 )}
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 p-6 md:p-7 text-white">
-                <p className="text-[11px] uppercase tracking-[0.28em] text-white/65 mb-2">
+              <div className="absolute inset-x-0 bottom-0 p-4 md:p-7 text-white">
+                <p className="text-[10px] md:text-[11px] uppercase tracking-[0.28em] text-white/65 mb-1.5 md:mb-2">
                   {character?.name || "关系剧情"}
                 </p>
-                <div className="flex items-end justify-between gap-4">
+                <div className="flex items-end justify-between gap-3 md:gap-4">
                   <div className="min-w-0">
-                    <h2 className="text-2xl md:text-3xl font-bold truncate">{activeCard?.title || event.title}</h2>
-                    <p className="text-sm text-white/78 mt-2 max-w-2xl line-clamp-2">
+                    <h2 className="text-xl md:text-3xl font-bold truncate">{activeCard?.title || event.title}</h2>
+                    <p className="text-xs md:text-sm text-white/78 mt-1.5 md:mt-2 max-w-2xl line-clamp-2">
                       {activeCard?.description || event.description}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="text-xs text-white/70">进度</div>
-                    <div className="text-sm font-semibold">
+                    <div className="text-[10px] md:text-xs text-white/70">进度</div>
+                    <div className="text-xs md:text-sm font-semibold">
                       第 {Math.max(activeCard?.current_act || 1, 1)} 幕 / 共 {activeCard?.total_acts || 1} 幕
                     </div>
                   </div>
@@ -514,7 +514,7 @@ export default function RelationshipEventModal({
             </div>
 
             <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div ref={transcriptScrollRef} className="min-h-0 overflow-y-auto p-5 md:p-7 bg-page">
+              <div ref={transcriptScrollRef} className="min-h-0 overflow-y-auto p-4 md:p-7 bg-page pb-[max(env(safe-area-inset-bottom),1rem)]">
                 {mode === "loading" && (
                   <div className="h-full flex flex-col items-center justify-center text-secondary">
                     <Loader2 size={28} className="animate-spin mb-3" />

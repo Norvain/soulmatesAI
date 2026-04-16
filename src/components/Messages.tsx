@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { MessageCircle } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { getChats } from "../lib/api";
+import { usePullToRefresh } from "../lib/use-pull-to-refresh";
 
 const PRESET_CHARACTERS: Record<string, { name: string; avatarUrl: string }> = {
   preset_lintang: { name: "林棠", avatarUrl: "/avatars/lintang-avatar.png" },
@@ -93,14 +94,48 @@ export default function Messages({ onSelectChat, onViewProfile }: MessagesProps)
     return () => clearInterval(timer);
   }, [fetchChats]);
 
+  const {
+    pullDistance,
+    refreshing,
+    bind: pullBind,
+  } = usePullToRefresh({
+    onRefresh: async () => {
+      await fetchChats().catch(console.error);
+    },
+  });
+
   if (loading) {
     return <div className="flex-1 flex items-center justify-center text-muted">加载中...</div>;
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-page p-6">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-heading mb-6">消息</h1>
+    <div
+      ref={pullBind.ref}
+      className="flex-1 overflow-y-auto bg-page p-4 md:p-6 pb-24 md:pb-6 overscroll-contain"
+    >
+      <div
+        className="max-w-2xl mx-auto"
+        style={{
+          transform: pullDistance ? `translateY(${pullDistance}px)` : undefined,
+          transition: pullDistance && !refreshing ? "none" : "transform 200ms ease",
+        }}
+      >
+        <div
+          className="md:hidden flex justify-center items-center h-0 -mt-2 mb-2 text-muted text-xs"
+          style={{ opacity: pullDistance / 64 }}
+          aria-hidden={pullDistance === 0}
+        >
+          {refreshing ? (
+            <span className="inline-flex items-center gap-1">
+              <Loader2 size={14} className="animate-spin" /> 正在刷新
+            </span>
+          ) : pullDistance >= 64 ? (
+            "松开刷新"
+          ) : (
+            "下拉刷新"
+          )}
+        </div>
+        <h1 className="text-2xl font-bold text-heading mb-4 md:mb-6">消息</h1>
 
         {chats.length === 0 ? (
           <div className="text-center py-20 text-muted">
