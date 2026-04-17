@@ -18,9 +18,14 @@ interface ISpeechRecognition extends EventTarget {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
+  maxAlternatives?: number;
   onresult: ((ev: any) => void) | null;
   onerror: ((ev: any) => void) | null;
   onend: (() => void) | null;
+  onstart?: (() => void) | null;
+  onaudiostart?: (() => void) | null;
+  onspeechstart?: (() => void) | null;
+  onspeechend?: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -34,6 +39,23 @@ const SpeechRecognitionAPI: ISpeechRecognitionConstructor | null =
   typeof window !== "undefined"
     ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     : null;
+
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // iPadOS 13+ reports as MacIntel with touch support
+  return (
+    navigator.platform === "MacIntel" &&
+    typeof (navigator as any).maxTouchPoints === "number" &&
+    (navigator as any).maxTouchPoints > 1
+  );
+}
+
+function isMobileUA(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
 
 interface Message {
   id: string;
@@ -168,6 +190,9 @@ export default function Chat({
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const finalTranscriptRef = useRef("");
+  const recognitionStartingRef = useRef(false);
+  const recognitionGotResultRef = useRef(false);
+  const recognitionSilenceTimerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastModelMessageIdRef = useRef<string | null>(null);
   const onStateChangeRef = useRef(onStateChange);
@@ -353,15 +378,97 @@ export default function Chat({
     reader.readAsDataURL(file);
   };
 
-  const startRecording = () => {
-    if (!SpeechRecognitionAPI) return;
+  const clearSilenceTimer = () => {
+    if (recognitionSilenceTimerRef.current != null) {
+      window.clearTimeout(recognitionSilenceTimerRef.current);
+      recognitionSilenceTimerRef.current = null;
+    }
+  };
+
+  const armSilenceTimer = (ms: number) => {
+    clearSilenceTimer();
+    recognitionSilenceTimerRef.current = window.setTimeout(() => {
+      // No audio/result for a while — stop cleanly so the user isn't stuck on
+      // "正在聆听..." forever (common on Android WebView and embedded browsers
+      // where the API exists but never fires `onresult`).
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+    }, ms);
+  };
+
+  const startRecording = async () => {
+    if (!SpeechRecognitionAPI) {
+      showToast("当前浏览器不支持语音识别，请使用系统自带的 Safari 或 Chrome", "warning");
+      return;
+    }
+    if (recognitionStartingRef.current || recognitionRef.current) {
+      // Guard against double-taps that can lead to InvalidStateError on iOS.
+      return;
+    }
+    recognitionStartingRef.current = true;
+
+    // Step 1: request microphone permission up-front via getUserMedia. This is
+    // the most reliable prompt on mobile (the prompt fired by the speech API
+    // alone is silently dismissed by some iOS/Android browsers). We release
+    // the stream immediately so SpeechRecognition can open its own.
+    try {
+      const md = (navigator as any).mediaDevices;
+      if (md && typeof md.getUserMedia === "function") {
+        const stream = await md.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      }
+    } catch (error: any) {
+      recognitionStartingRef.current = false;
+      const name = error?.name || "";
+      if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
+        showToast("麦克风权限被拒绝，请在浏览器/系统设置中允许后重试", "warning");
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        showToast("未检测到可用的麦克风设备", "error");
+      } else if (name === "NotReadableError") {
+        showToast("麦克风被其他应用占用，请关闭后重试", "error");
+      } else {
+        showToast("无法访问麦克风：" + (error?.message || name || "未知错误"), "error");
+      }
+      return;
+    }
+
+    // Step 2: create recognition. iOS Safari is unreliable with
+    // `continuous: true` — it often never fires `onresult`. Use single-shot on
+    // iOS and on other mobile UAs that commonly misbehave.
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = "zh-CN";
-    recognition.continuous = true;
+    recognition.continuous = !isMobileUA();
     recognition.interimResults = true;
+    try {
+      recognition.maxAlternatives = 1;
+    } catch {
+      /* not all implementations support this */
+    }
+
     finalTranscriptRef.current = "";
+    recognitionGotResultRef.current = false;
     setInterimText("");
+
+    recognition.onstart = () => {
+      // Arm a fallback timeout in case the engine never talks back.
+      armSilenceTimer(8000);
+    };
+
+    recognition.onaudiostart = () => {
+      armSilenceTimer(8000);
+    };
+
+    recognition.onspeechstart = () => {
+      // User actually started speaking — extend the silence window.
+      armSilenceTimer(6000);
+    };
+
     recognition.onresult = (event: any) => {
+      recognitionGotResultRef.current = true;
+      armSilenceTimer(isIOS() ? 2500 : 4000);
       let interim = "";
       let final = "";
       for (let index = 0; index < event.results.length; index += 1) {
@@ -369,36 +476,105 @@ export default function Chat({
         if (event.results[index].isFinal) final += transcript;
         else interim += transcript;
       }
-      if (final) finalTranscriptRef.current = final;
+      if (final) finalTranscriptRef.current += final;
       setInterimText(finalTranscriptRef.current + interim);
     };
-    recognition.onerror = () => {
+
+    recognition.onerror = (event: any) => {
+      clearSilenceTimer();
+      const err = event?.error || "unknown";
+      if (err === "not-allowed" || err === "service-not-allowed") {
+        showToast("麦克风权限未授予，请在浏览器设置中允许", "warning");
+      } else if (err === "no-speech") {
+        showToast("没听清，请再说一次", "info");
+      } else if (err === "audio-capture") {
+        showToast("无法获取音频，请检查麦克风", "error");
+      } else if (err === "network") {
+        showToast("语音识别需要网络连接，请检查网络", "error");
+      } else if (err === "aborted") {
+        /* user-initiated stop, no toast */
+      } else {
+        showToast("语音识别出错，请稍后再试", "error");
+      }
       setIsRecording(false);
       setInterimText("");
     };
+
     recognition.onend = () => {
+      clearSilenceTimer();
+      recognitionRef.current = null;
+      recognitionStartingRef.current = false;
       setIsRecording(false);
       const text = finalTranscriptRef.current.trim();
       setInterimText("");
       if (text) {
         setInput(text);
         handleSendVoice(text);
+      } else if (!recognitionGotResultRef.current) {
+        // Only warn when we truly got nothing — avoids double toasts with onerror.
+        showToast("没有识别到语音，请靠近麦克风再试一次", "info");
       }
     };
-    recognition.start();
-    recognitionRef.current = recognition;
-    setIsRecording(true);
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsRecording(true);
+      armSilenceTimer(8000);
+    } catch (error: any) {
+      recognitionStartingRef.current = false;
+      const name = error?.name || "";
+      if (name === "InvalidStateError") {
+        // Already running — force-stop and let the user retry.
+        try { recognition.abort(); } catch { /* ignore */ }
+        showToast("请稍候再试", "info");
+      } else {
+        showToast("语音识别启动失败：" + (error?.message || name || "未知错误"), "error");
+      }
+      setIsRecording(false);
+    } finally {
+      // Clear the starting guard after a short delay regardless — `onstart`
+      // may or may not fire, and we don't want it stuck forever.
+      window.setTimeout(() => {
+        recognitionStartingRef.current = false;
+      }, 500);
+    }
   };
 
   const stopRecording = () => {
-    recognitionRef.current?.stop();
+    clearSilenceTimer();
+    const recognition = recognitionRef.current;
     recognitionRef.current = null;
+    if (!recognition) {
+      setIsRecording(false);
+      setInterimText("");
+      return;
+    }
+    try {
+      recognition.stop();
+    } catch {
+      try { recognition.abort(); } catch { /* ignore */ }
+      setIsRecording(false);
+      setInterimText("");
+    }
   };
 
   const toggleRecording = () => {
     if (isRecording) stopRecording();
-    else startRecording();
+    else void startRecording();
   };
+
+  useEffect(() => {
+    return () => {
+      clearSilenceTimer();
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        /* ignore */
+      }
+      recognitionRef.current = null;
+    };
+  }, []);
 
   const handleMessageClick = (messageId: string) => {
     if (messageId.startsWith("temp-")) return;
@@ -761,7 +937,7 @@ export default function Chat({
       </div>
 
         {/* ─── Floating Ghost Helper ─── */}
-        {!ghostDismissed && (
+        {!ghostDismissed && !isRecording && (
           <div
             data-suggestions-root="true"
             className="absolute bottom-4 right-6 z-30 flex items-end gap-2 pointer-events-auto"
@@ -840,7 +1016,7 @@ export default function Chat({
 
       <div className="px-3 md:px-4 pt-3 md:pt-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:pb-4 bg-surface border-t border-divider relative">
         <AnimatePresence>
-          {showSuggestions && suggestions.length > 0 && (
+          {showSuggestions && suggestions.length > 0 && !isRecording && (
             <motion.div
               data-suggestions-root="true"
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -897,14 +1073,19 @@ export default function Chat({
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 5 }}
-              className="absolute bottom-full left-0 right-0 mb-2 mx-4 bg-red-50 border border-red-200 rounded-2xl px-5 py-3 flex items-center space-x-3"
+              className="absolute bottom-full left-0 right-0 mb-2 mx-4 bg-red-50 border border-red-200 rounded-2xl px-4 md:px-5 py-3 flex items-center space-x-3 z-40 shadow-lg"
             >
               <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-3 h-3 bg-red-500 rounded-full shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-red-600 font-medium">正在聆听...</p>
                 {interimText && <p className="text-sm text-red-800 truncate mt-0.5">{interimText}</p>}
               </div>
-              <button type="button" onClick={stopRecording} className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0">
+              <button
+                type="button"
+                onClick={stopRecording}
+                aria-label="停止录音"
+                className="shrink-0 bg-red-500 text-white text-xs font-medium rounded-full px-4 py-2 md:px-3 md:py-1.5 hover:bg-red-600 active:bg-red-700 transition-colors"
+              >
                 完成
               </button>
             </motion.div>
