@@ -30,7 +30,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
-      max_memory_restart: "2G",
+      max_memory_restart: "1200M",
       time: true,
     },
   ],

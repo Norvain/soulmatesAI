@@ -16,3 +16,6 @@ backups/
 *.pem
 *.key
 docs/
+asr-service/venv/
+asr-service/models/
+asr-service/__pycache__/

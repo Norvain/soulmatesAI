@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# Install Python deps and pre-download the FunASR model.
+# Install Python deps and download the sherpa-onnx SenseVoice int8 model.
 # Works on macOS (Apple Silicon / Intel) and Ubuntu (x86_64 / arm64).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$SCRIPT_DIR/../asr-service"
 cd "$SERVICE_DIR"
+
+MODEL_NAME="sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
+MODEL_DIR="$SERVICE_DIR/models/$MODEL_NAME"
+MODEL_TARBALL="$MODEL_NAME.tar.bz2"
+MODEL_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/$MODEL_TARBALL"
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "[setup-asr] python3 not found. Install Python 3.9+ first." >&2
@@ -26,15 +31,33 @@ fi
 echo "[setup-asr] upgrading pip..."
 ./venv/bin/pip install --upgrade pip
 
-echo "[setup-asr] installing requirements (this may take a few minutes)..."
+echo "[setup-asr] installing requirements..."
 ./venv/bin/pip install -r requirements.txt
 
-echo "[setup-asr] pre-downloading model (~230MB on first run)..."
-./venv/bin/python - <<'PY'
-from funasr import AutoModel
-AutoModel(model="iic/SenseVoiceSmall", model_revision="master", disable_update=True, device="cpu")
-print("model ready")
-PY
+mkdir -p "$SERVICE_DIR/models"
+if [ -f "$MODEL_DIR/model.int8.onnx" ] && [ -f "$MODEL_DIR/tokens.txt" ]; then
+  echo "[setup-asr] model already present at $MODEL_DIR"
+else
+  echo "[setup-asr] downloading model bundle (~250MB)..."
+  cd "$SERVICE_DIR/models"
+  if command -v curl >/dev/null 2>&1; then
+    curl -L --fail -o "$MODEL_TARBALL" "$MODEL_URL"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$MODEL_TARBALL" "$MODEL_URL"
+  else
+    echo "[setup-asr] need curl or wget to download the model" >&2
+    exit 1
+  fi
+  echo "[setup-asr] extracting..."
+  tar -xjf "$MODEL_TARBALL"
+  rm -f "$MODEL_TARBALL"
+  cd "$SERVICE_DIR"
+fi
+
+if [ ! -f "$MODEL_DIR/model.int8.onnx" ]; then
+  echo "[setup-asr] model.int8.onnx missing after extract; check $MODEL_DIR" >&2
+  exit 1
+fi
 
 echo
 echo "[setup-asr] done. Start the service with:"
