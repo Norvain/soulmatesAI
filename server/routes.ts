@@ -27,8 +27,10 @@ import {
   RelationshipEventError,
   startRelationshipEvent,
 } from "./relationship-events-service.js";
+import asrRouter from "./routes/asr.js";
 
 const router = Router();
+router.use("/asr", asrRouter);
 const PRESET_IDS = Object.keys(PRESET_MAP);
 const INITIAL_RELATION_INTIMACY = 299;
 const INITIAL_RELATION_TRUST = 299;

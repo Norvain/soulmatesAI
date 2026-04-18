@@ -358,3 +358,16 @@ export function getMomentsUnreadCount() {
 export function markMomentsRead() {
   return request<{ ok: boolean }>("/api/moments/mark-read", { method: "POST" });
 }
+
+export interface TranscribeResult {
+  text: string;
+  durationMs?: number;
+  error?: string;
+}
+
+export function transcribeAudio(audioBase64: string, mimeType: string) {
+  return request<TranscribeResult>("/api/asr/transcribe", {
+    method: "POST",
+    body: JSON.stringify({ audio: audioBase64, mimeType }),
+  });
+}

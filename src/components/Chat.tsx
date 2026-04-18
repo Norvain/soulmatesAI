@@ -10,6 +10,7 @@ import {
   markChatRead,
   saveInteractionMoment,
   sendMessage,
+  transcribeAudio,
 } from "../lib/api";
 import { useSwipeBack } from "../lib/use-swipe-back";
 import { useToast } from "../lib/toast-context";
@@ -55,6 +56,41 @@ function isIOS(): boolean {
 function isMobileUA(): boolean {
   if (typeof navigator === "undefined") return false;
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
+
+// Web Speech API in mainland-China mobile browsers (WeChat, UC, in-app webviews,
+// Android Chrome without Google services) routinely fails — `onresult` never
+// fires. We route those clients to the server-side FunASR endpoint instead.
+function shouldUseServerAsr(): boolean {
+  if (!SpeechRecognitionAPI) return true;
+  return isMobileUA();
+}
+
+function pickRecorderMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+  for (const c of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(c)) return c;
+    } catch { /* ignore */ }
+  }
+  return "";
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  return btoa(binary);
 }
 
 interface Message {
@@ -166,6 +202,7 @@ export default function Chat({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [interimText, setInterimText] = useState("");
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
@@ -193,6 +230,11 @@ export default function Chat({
   const recognitionStartingRef = useRef(false);
   const recognitionGotResultRef = useRef(false);
   const recognitionSilenceTimerRef = useRef<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const mediaAutoStopTimerRef = useRef<number | null>(null);
+  const mediaCancelledRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastModelMessageIdRef = useRef<string | null>(null);
   const onStateChangeRef = useRef(onStateChange);
@@ -399,7 +441,158 @@ export default function Chat({
     }, ms);
   };
 
+  const clearMediaAutoStopTimer = () => {
+    if (mediaAutoStopTimerRef.current != null) {
+      window.clearTimeout(mediaAutoStopTimerRef.current);
+      mediaAutoStopTimerRef.current = null;
+    }
+  };
+
+  const releaseMediaStream = () => {
+    const stream = mediaStreamRef.current;
+    mediaStreamRef.current = null;
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        try { track.stop(); } catch { /* ignore */ }
+      });
+    }
+  };
+
+  const startServerAsrRecording = async () => {
+    if (isRecording || isTranscribing) return;
+    if (typeof MediaRecorder === "undefined") {
+      showToast("当前浏览器不支持录音，请升级或更换浏览器", "warning");
+      return;
+    }
+    const mimeType = pickRecorderMimeType();
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error: any) {
+      const name = error?.name || "";
+      if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
+        showToast("麦克风权限被拒绝，请在浏览器/系统设置中允许后重试", "warning");
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        showToast("未检测到可用的麦克风设备", "error");
+      } else if (name === "NotReadableError") {
+        showToast("麦克风被其他应用占用，请关闭后重试", "error");
+      } else {
+        showToast("无法访问麦克风：" + (error?.message || name || "未知错误"), "error");
+      }
+      return;
+    }
+
+    mediaStreamRef.current = stream;
+    mediaChunksRef.current = [];
+    mediaCancelledRef.current = false;
+
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    } catch (error: any) {
+      releaseMediaStream();
+      showToast("启动录音失败：" + (error?.message || "未知错误"), "error");
+      return;
+    }
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) mediaChunksRef.current.push(event.data);
+    };
+
+    recorder.onerror = () => {
+      showToast("录音出错，请重试", "error");
+      mediaCancelledRef.current = true;
+      try { recorder.stop(); } catch { /* ignore */ }
+    };
+
+    recorder.onstop = async () => {
+      clearMediaAutoStopTimer();
+      const chunks = mediaChunksRef.current;
+      const actualMime = recorder.mimeType || mimeType || "audio/webm";
+      mediaChunksRef.current = [];
+      mediaRecorderRef.current = null;
+      releaseMediaStream();
+      setIsRecording(false);
+
+      if (mediaCancelledRef.current) {
+        mediaCancelledRef.current = false;
+        setInterimText("");
+        return;
+      }
+
+      if (!chunks.length) {
+        setInterimText("");
+        showToast("没有录到音频，请再试一次", "info");
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: actualMime });
+      if (blob.size < 1000) {
+        setInterimText("");
+        showToast("录音太短，请再说一次", "info");
+        return;
+      }
+
+      setIsTranscribing(true);
+      setInterimText("识别中...");
+      try {
+        const base64 = await blobToBase64(blob);
+        const result = await transcribeAudio(base64, actualMime);
+        const text = (result.text || "").trim();
+        if (!text) {
+          showToast(result.error || "没有识别到语音，请靠近麦克风再试一次", "info");
+          return;
+        }
+        finalTranscriptRef.current = text;
+        setInput(text);
+        handleSendVoice(text);
+      } catch (error: any) {
+        showToast(error?.message || "语音识别失败，请稍后再试", "error");
+      } finally {
+        setIsTranscribing(false);
+        setInterimText("");
+      }
+    };
+
+    try {
+      recorder.start();
+      setIsRecording(true);
+      setInterimText("");
+      // Auto-stop after 60s to protect against users forgetting to tap stop.
+      mediaAutoStopTimerRef.current = window.setTimeout(() => {
+        try { recorder.stop(); } catch { /* ignore */ }
+      }, 60_000);
+    } catch (error: any) {
+      releaseMediaStream();
+      mediaRecorderRef.current = null;
+      showToast("启动录音失败：" + (error?.message || "未知错误"), "error");
+    }
+  };
+
+  const stopServerAsrRecording = (cancel = false) => {
+    clearMediaAutoStopTimer();
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) {
+      releaseMediaStream();
+      setIsRecording(false);
+      return;
+    }
+    mediaCancelledRef.current = cancel;
+    try {
+      if (recorder.state !== "inactive") recorder.stop();
+    } catch {
+      releaseMediaStream();
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
+    }
+  };
+
   const startRecording = async () => {
+    if (shouldUseServerAsr()) {
+      return startServerAsrRecording();
+    }
     if (!SpeechRecognitionAPI) {
       showToast("当前浏览器不支持语音识别，请使用系统自带的 Safari 或 Chrome", "warning");
       return;
@@ -542,6 +735,10 @@ export default function Chat({
   };
 
   const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      stopServerAsrRecording(false);
+      return;
+    }
     clearSilenceTimer();
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
@@ -560,6 +757,7 @@ export default function Chat({
   };
 
   const toggleRecording = () => {
+    if (isTranscribing) return;
     if (isRecording) stopRecording();
     else void startRecording();
   };
@@ -567,12 +765,21 @@ export default function Chat({
   useEffect(() => {
     return () => {
       clearSilenceTimer();
+      clearMediaAutoStopTimer();
       try {
         recognitionRef.current?.abort();
       } catch {
         /* ignore */
       }
       recognitionRef.current = null;
+      if (mediaRecorderRef.current) {
+        mediaCancelledRef.current = true;
+        try {
+          if (mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop();
+        } catch { /* ignore */ }
+        mediaRecorderRef.current = null;
+      }
+      releaseMediaStream();
     };
   }, []);
 
@@ -1068,7 +1275,7 @@ export default function Chat({
         </AnimatePresence>
 
         <AnimatePresence>
-          {isRecording && (
+          {(isRecording || isTranscribing) && (
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1077,17 +1284,21 @@ export default function Chat({
             >
               <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-3 h-3 bg-red-500 rounded-full shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-red-600 font-medium">正在聆听...</p>
-                {interimText && <p className="text-sm text-red-800 truncate mt-0.5">{interimText}</p>}
+                <p className="text-xs text-red-600 font-medium">
+                  {isTranscribing ? "识别中..." : (mediaRecorderRef.current ? "正在录音..." : "正在聆听...")}
+                </p>
+                {interimText && !isTranscribing && <p className="text-sm text-red-800 truncate mt-0.5">{interimText}</p>}
               </div>
-              <button
-                type="button"
-                onClick={stopRecording}
-                aria-label="停止录音"
-                className="shrink-0 bg-red-500 text-white text-xs font-medium rounded-full px-4 py-2 md:px-3 md:py-1.5 hover:bg-red-600 active:bg-red-700 transition-colors"
-              >
-                完成
-              </button>
+              {isRecording && (
+                <button
+                  type="button"
+                  onClick={stopRecording}
+                  aria-label="停止录音"
+                  className="shrink-0 bg-red-500 text-white text-xs font-medium rounded-full px-4 py-2 md:px-3 md:py-1.5 hover:bg-red-600 active:bg-red-700 transition-colors"
+                >
+                  完成
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1134,36 +1345,40 @@ export default function Chat({
             <Camera size={20} />
           </button>
 
-          {SpeechRecognitionAPI && (
-            <button
-              type="button"
-              onClick={toggleRecording}
-              className={cn(
-                "p-3 rounded-full transition-colors shrink-0",
-                isRecording ? "bg-red-100 text-red-500 animate-pulse" : "text-muted hover:text-secondary hover:bg-page"
-              )}
-              title={isRecording ? "停止录音" : "语音输入"}
-            >
-              <Mic size={20} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={toggleRecording}
+            disabled={isTranscribing}
+            className={cn(
+              "p-3 rounded-full transition-colors shrink-0",
+              isRecording ? "bg-red-100 text-red-500 animate-pulse" : "text-muted hover:text-secondary hover:bg-page",
+              isTranscribing && "opacity-50 cursor-not-allowed"
+            )}
+            title={isTranscribing ? "识别中..." : (isRecording ? "停止录音" : "语音输入")}
+          >
+            <Mic size={20} />
+          </button>
 
           <div className="relative flex-1">
             <input
               ref={inputRef}
               type="text"
-              value={isRecording ? interimText : input}
+              value={isRecording || isTranscribing ? interimText : input}
               onChange={handleInputChange}
-              readOnly={isRecording}
-              placeholder={isRecording ? "正在聆听..." : `发消息给 ${character?.name || "..."}  (输入 @ 引用记忆)`}
+              readOnly={isRecording || isTranscribing}
+              placeholder={
+                isTranscribing ? "识别中..." :
+                isRecording ? (mediaRecorderRef.current ? "正在录音..." : "正在聆听...") :
+                `发消息给 ${character?.name || "..."}  (输入 @ 引用记忆)`
+              }
               className={cn(
                 "w-full border-none rounded-full py-3 pl-5 md:pl-6 pr-14 text-base md:text-sm focus:ring-2 transition-all",
-                isRecording ? "bg-red-50 focus:ring-red-200 text-red-800" : "bg-input-bg focus:ring-focus-ring"
+                (isRecording || isTranscribing) ? "bg-red-50 focus:ring-red-200 text-red-800" : "bg-input-bg focus:ring-focus-ring"
               )}
             />
             <button
               type="submit"
-              disabled={(!input.trim() && !uploadedImage) || isRecording}
+              disabled={(!input.trim() && !uploadedImage) || isRecording || isTranscribing}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-btn text-btn-text rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-btn-hover transition-colors"
             >
               <Send size={16} />
