@@ -1116,26 +1116,58 @@ router.post("/moments/:id/like", authMiddleware, (req: AuthRequest, res: Respons
 });
 
 router.post("/moments/:id/comment", authMiddleware, (req: AuthRequest, res: Response) => {
-  const { text } = req.body;
-  const moment = db.prepare("SELECT * FROM moments WHERE id = ? AND user_id = ?").get(req.params.id, req.userId!) as any;
-  if (!moment) { res.status(404).json({ error: "动态不存在" }); return; }
-  if (moment.source_type === "user_post") {
-    res.status(400).json({ error: "用户朋友圈暂不支持手动评论" });
+  const { text, target_character_id } = req.body as { text?: string; target_character_id?: string };
+  if (!text || !text.trim()) {
+    res.status(400).json({ error: "评论内容不能为空" });
     return;
   }
+  const moment = db.prepare("SELECT * FROM moments WHERE id = ? AND user_id = ?").get(req.params.id, req.userId!) as any;
+  if (!moment) { res.status(404).json({ error: "动态不存在" }); return; }
 
   const comments = parseMomentComments(moment.comments);
   const profile = db.prepare("SELECT preferred_name FROM users WHERE id = ?").get(req.userId!) as any;
   const userName = profile?.preferred_name || "用户";
-  const userComment = { id: Date.now().toString(), author: userName, text, isAI: false, created_at: new Date().toISOString() };
+
+  let targetCharacterId: string | null = null;
+  let targetCharacterName = moment.character_name || "";
+  let targetPersona = "温暖、体贴的AI伴侣。";
+
+  if (moment.source_type === "user_post") {
+    if (!target_character_id) {
+      res.status(400).json({ error: "请先选择要回复的角色" });
+      return;
+    }
+    const charDoc = db.prepare(
+      "SELECT id, name, persona FROM characters WHERE id = ? AND user_id = ?"
+    ).get(target_character_id, req.userId!) as any;
+    if (!charDoc) {
+      res.status(404).json({ error: "目标角色不存在" });
+      return;
+    }
+    targetCharacterId = charDoc.id;
+    targetCharacterName = charDoc.name;
+    targetPersona = charDoc.persona;
+  } else {
+    targetCharacterId = moment.character_id;
+    const charDoc = db.prepare(
+      "SELECT persona FROM characters WHERE id = ? AND user_id = ?"
+    ).get(moment.character_id, moment.user_id) as any;
+    if (charDoc) targetPersona = charDoc.persona;
+  }
+
+  const userComment: Record<string, unknown> = {
+    id: Date.now().toString(),
+    author: userName,
+    text,
+    isAI: false,
+    created_at: new Date().toISOString(),
+  };
+  if (targetCharacterId) {
+    userComment.target_character_id = targetCharacterId;
+    userComment.target_character_name = targetCharacterName;
+  }
   comments.push(userComment);
   db.prepare("UPDATE moments SET comments = ? WHERE id = ?").run(JSON.stringify(comments), req.params.id);
-
-  let persona = "温暖、体贴的AI伴侣。";
-  const charDoc = db.prepare(
-    "SELECT persona FROM characters WHERE id = ? AND user_id = ?"
-  ).get(moment.character_id, moment.user_id) as any;
-  if (charDoc) persona = charDoc.persona;
 
   const delayMs = (1 + Math.random() * 4) * 60 * 1000;
   const executeAfter = new Date(Date.now() + delayMs).toISOString();
@@ -1152,9 +1184,11 @@ router.post("/moments/:id/comment", authMiddleware, (req: AuthRequest, res: Resp
       user_id: req.userId!,
       comment_text: text,
       user_name: userName,
-      character_name: moment.character_name || "AI",
-      persona,
+      character_id: targetCharacterId,
+      character_name: targetCharacterName,
+      persona: targetPersona,
       moment_content: moment.content || "",
+      is_user_post: moment.source_type === "user_post",
     })
   );
 

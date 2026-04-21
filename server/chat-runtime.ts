@@ -16,6 +16,7 @@ import {
   getPresetPersona,
   resolvePresetId,
   getPresetVoiceId,
+  getPresetAppearance,
 } from "./preset-characters.js";
 
 const SEGMENT_DELAY_MS = 1000;
@@ -54,6 +55,7 @@ interface ChatContext {
   charName: string;
   charPersona: string;
   charOverview: string;
+  charAppearance: string;
   charGreeting: string;
   charVoiceId: string;
   userName: string;
@@ -286,6 +288,7 @@ function loadChatContext(chatId: string, userId: string, turn?: QueueTurn): Chat
   const charName = character?.name || getPresetName(characterKey);
   const charPersona = character?.persona || getPresetPersona(characterKey);
   const charOverview = character?.overview || getPresetOverview(characterKey);
+  const charAppearance = getPresetAppearance(characterKey);
   const charGreeting = character?.greeting || getPresetGreeting(characterKey);
   const charVoiceId = character?.voice_id || getPresetVoiceId(characterKey);
   const userName = profile?.preferred_name || "用户";
@@ -310,6 +313,7 @@ function loadChatContext(chatId: string, userId: string, turn?: QueueTurn): Chat
     charName,
     charPersona,
     charOverview,
+    charAppearance,
     charGreeting,
     charVoiceId,
     userName,
@@ -515,7 +519,7 @@ async function generateUserTurnReply(turn: QueueTurn, metadata: TurnMetadata) {
   const [replyRaw, intent] = await Promise.all([
     chatCompletion(chatMessages),
     metadata.text?.trim()
-      ? detectIntent(metadata.text, recentForContext, context.charName, context.charPersona, context.charOverview)
+      ? detectIntent(metadata.text, recentForContext, context.charName, context.charPersona, context.charOverview, context.charAppearance)
       : Promise.resolve({ need_image: false, image_prompt: "" }),
   ]);
 

@@ -20,6 +20,9 @@ interface Comment {
   author: string;
   text: string;
   isAI?: boolean;
+  character_id?: string;
+  target_character_id?: string;
+  target_character_name?: string;
   created_at?: string;
   timestamp?: string;
 }
@@ -55,6 +58,7 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
   const [loading, setLoading] = useState(true);
   const [commentingOn, setCommentingOn] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState("");
+  const [commentTarget, setCommentTarget] = useState<{ characterId: string; characterName: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [avatarImage, setAvatarImage] = useState<string | null>(null);
@@ -67,7 +71,28 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
   const [isPublishingMoment, setIsPublishingMoment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const postImageInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!commentingOn) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (composerRef.current && composerRef.current.contains(target)) return;
+      const reopenTrigger = (target as HTMLElement).closest?.("[data-reply-trigger]");
+      if (reopenTrigger) return;
+      setCommentingOn(null);
+      setCommentTarget(null);
+      setCommentInput("");
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [commentingOn]);
 
   const mentionMatch = postContent.match(/(^|\s)@([^\s@]*)$/);
   const mentionQuery = mentionMatch?.[2]?.trim() || "";
@@ -134,9 +159,16 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
 
   const handleComment = async (moment: Moment) => {
     if (!commentInput.trim() || isSubmitting) return;
+    if (moment.source_type === "user_post" && !commentTarget) {
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const { userComment } = await commentMoment(moment.id, commentInput.trim());
+      const { userComment } = await commentMoment(
+        moment.id,
+        commentInput.trim(),
+        commentTarget?.characterId,
+      );
       setMoments(prev =>
         prev.map(m => {
           if (m.id !== moment.id) return m;
@@ -145,11 +177,32 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
       );
       setCommentInput("");
       setCommentingOn(null);
+      setCommentTarget(null);
     } catch (e) {
       console.error("Comment failed:", e);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openReplyTo = (
+    moment: Moment,
+    target?: { characterId: string; characterName: string },
+  ) => {
+    if (moment.source_type === "user_post") {
+      if (!target) return;
+      setCommentTarget(target);
+    } else {
+      setCommentTarget(target || null);
+    }
+    setCommentingOn(moment.id);
+  };
+
+  const resolveCharacterFromComment = (c: Comment, moment: Moment) => {
+    if (!c.isAI) return null;
+    const characterId = c.character_id || (moment.source_type === "user_post" ? null : moment.character_id);
+    if (!characterId) return null;
+    return { characterId, characterName: c.author || moment.character_name };
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -479,8 +532,8 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
                       ? new Date(moment.created_at).toLocaleString()
                       : "刚刚"}
                   </span>
-                  {moment.source_type !== "user_post" && (
-                    <div className="flex items-center space-x-4 text-muted">
+                  <div className="flex items-center space-x-4 text-muted">
+                    {moment.source_type !== "user_post" && (
                       <button
                         onClick={() => handleLike(moment)}
                         className={cn(
@@ -493,18 +546,49 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
                           className={cn(moment.is_liked && "fill-current")}
                         />
                       </button>
-                      <button
-                        onClick={() =>
-                          setCommentingOn(
-                            commentingOn === moment.id ? null : moment.id
-                          )
-                        }
-                        className="flex items-center space-x-1 hover:text-secondary transition-colors"
-                      >
-                        <MessageCircle size={16} />
-                      </button>
-                    </div>
-                  )}
+                    )}
+                    {(() => {
+                      if (moment.source_type !== "user_post") {
+                        return (
+                          <button
+                            data-reply-trigger
+                            onClick={() => {
+                              if (commentingOn === moment.id) {
+                                setCommentingOn(null);
+                                setCommentTarget(null);
+                              } else {
+                                openReplyTo(moment);
+                              }
+                            }}
+                            className="flex items-center space-x-1 hover:text-secondary transition-colors"
+                          >
+                            <MessageCircle size={16} />
+                          </button>
+                        );
+                      }
+                      const lastAiComment = [...moment.comments].reverse().find((c) => c.isAI && c.character_id);
+                      if (!lastAiComment) return null;
+                      return (
+                        <button
+                          data-reply-trigger
+                          onClick={() => {
+                            if (commentingOn === moment.id) {
+                              setCommentingOn(null);
+                              setCommentTarget(null);
+                            } else {
+                              openReplyTo(moment, {
+                                characterId: lastAiComment.character_id!,
+                                characterName: lastAiComment.author,
+                              });
+                            }
+                          }}
+                          className="flex items-center space-x-1 hover:text-secondary transition-colors"
+                        >
+                          <MessageCircle size={16} />
+                        </button>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 {(moment.likes > 0 || moment.comments.length > 0) && (
@@ -523,45 +607,89 @@ export default function Moments({ onOpenProfile }: MomentsProps) {
                     )}
                     {moment.comments.length > 0 && (
                       <div className="space-y-1 mt-1">
-                        {moment.comments.map((c, idx) => (
-                          <div key={c.id || idx} className="leading-relaxed">
-                            <span className="font-medium text-[#576b95]">
-                              {getCommentAuthorName(c, moment)}
-                            </span>
-                            <span className="text-body">：{c.text}</span>
-                          </div>
-                        ))}
+                        {moment.comments.map((c, idx) => {
+                          const target = resolveCharacterFromComment(c, moment);
+                          const authorName = getCommentAuthorName(c, moment);
+                          return (
+                            <div key={c.id || idx} className="leading-relaxed">
+                              {target ? (
+                                <button
+                                  type="button"
+                                  data-reply-trigger
+                                  onClick={() => openReplyTo(moment, target)}
+                                  className="font-medium text-[#576b95] hover:underline"
+                                >
+                                  {authorName}
+                                </button>
+                              ) : (
+                                <span className="font-medium text-[#576b95]">{authorName}</span>
+                              )}
+                              {c.target_character_name && (
+                                <span className="text-muted"> 回复 </span>
+                              )}
+                              {c.target_character_name && (
+                                <span className="font-medium text-[#576b95]">{c.target_character_name}</span>
+                              )}
+                              <span className="text-body">：{c.text}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 )}
 
                 <AnimatePresence>
-                  {commentingOn === moment.id && moment.source_type !== "user_post" && (
+                  {commentingOn === moment.id && (
                     <motion.div
+                      ref={composerRef}
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="mt-3 flex items-center space-x-2 overflow-hidden"
+                      className="mt-3 overflow-hidden"
                     >
-                      <input
-                        type="text"
-                        autoFocus
-                        value={commentInput}
-                        onChange={e => setCommentInput(e.target.value)}
-                        placeholder="评论..."
-                        className="flex-1 bg-surface border border-divider-strong rounded-md px-3 py-1.5 text-sm text-body focus:outline-none focus:border-subtle"
-                        onKeyDown={e => {
-                          if (e.key === "Enter") handleComment(moment);
-                        }}
-                      />
-                      <button
-                        onClick={() => handleComment(moment)}
-                        disabled={!commentInput.trim() || isSubmitting}
-                        className="bg-[#07c160] text-white px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-50"
-                      >
-                        发送
-                      </button>
+                      {commentTarget && (
+                        <div className="mb-2 inline-flex items-center space-x-1 rounded-full bg-indigo-50 text-indigo-600 px-3 py-1 text-xs font-medium">
+                          <span>回复 @{commentTarget.characterName}</span>
+                          {moment.source_type !== "user_post" && (
+                            <button
+                              type="button"
+                              onClick={() => setCommentTarget(null)}
+                              className="hover:text-indigo-800"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={commentInput}
+                          onChange={e => setCommentInput(e.target.value)}
+                          placeholder={
+                            commentTarget
+                              ? `回复 ${commentTarget.characterName}...`
+                              : "评论..."
+                          }
+                          className="flex-1 bg-surface border border-divider-strong rounded-md px-3 py-1.5 text-sm text-body focus:outline-none focus:border-subtle"
+                          onKeyDown={e => {
+                            if (e.key === "Enter") handleComment(moment);
+                          }}
+                        />
+                        <button
+                          onClick={() => handleComment(moment)}
+                          disabled={
+                            !commentInput.trim() ||
+                            isSubmitting ||
+                            (moment.source_type === "user_post" && !commentTarget)
+                          }
+                          className="bg-[#07c160] text-white px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-50"
+                        >
+                          发送
+                        </button>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

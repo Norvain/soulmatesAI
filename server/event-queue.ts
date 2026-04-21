@@ -8,9 +8,11 @@ interface CommentReplyPayload {
   user_id: string;
   comment_text: string;
   user_name: string;
+  character_id?: string;
   character_name: string;
   persona: string;
   moment_content: string;
+  is_user_post?: boolean;
 }
 
 interface UserMomentCharacterCommentPayload {
@@ -71,17 +73,23 @@ function normalizeGeneratedComment(raw: string): string {
 }
 
 async function processCommentReply(payload: CommentReplyPayload) {
-  const { moment_id, user_id, comment_text, user_name, character_name, persona, moment_content } = payload;
+  const { moment_id, user_id, comment_text, user_name, character_name, persona, moment_content, is_user_post } = payload;
+
+  const sceneLine = is_user_post
+    ? `现在你在回复${user_name}发的朋友圈下面的一条评论。`
+    : `现在你在回复自己朋友圈下面的评论，保持角色一致，回复简短自然（1-2句）。`;
 
   const messages: ChatMessage[] = [
     {
       role: "system",
-      content: `你叫${character_name}。${persona}。你不是AI助手，你是一个真实的人。\n现在你在回复自己朋友圈下面的评论，保持角色一致，回复简短自然（1-2句）。`,
+      content: `你叫${character_name}。${persona}。你不是AI助手，你是一个真实的人。\n${sceneLine}`,
       name: character_name,
     },
     {
       role: "user",
-      content: `你发了一条朋友圈："${moment_content}"\n\n${user_name}评论了："${comment_text}"\n\n请以${character_name}的身份回复这条评论。`,
+      content: is_user_post
+        ? `${user_name}在自己朋友圈写的内容："${moment_content}"\n\n${user_name}回复了你的评论："${comment_text}"\n\n请以${character_name}的身份再回一句，自然、简短（1-2句），保持人设。`
+        : `你发了一条朋友圈："${moment_content}"\n\n${user_name}评论了："${comment_text}"\n\n请以${character_name}的身份回复这条评论。`,
       name: user_name,
     },
   ];
@@ -94,13 +102,15 @@ async function processCommentReply(payload: CommentReplyPayload) {
 
   const comments = parseComments(moment.comments);
 
-  comments.push({
+  const aiComment: Record<string, unknown> = {
     id: `reply_${Date.now()}`,
     author: character_name,
     text: cleanReply,
     isAI: true,
     created_at: new Date().toISOString(),
-  });
+  };
+  if (payload.character_id) aiComment.character_id = payload.character_id;
+  comments.push(aiComment);
 
   db.prepare("UPDATE moments SET comments = ? WHERE id = ? AND user_id = ?")
     .run(JSON.stringify(comments), moment_id, user_id);

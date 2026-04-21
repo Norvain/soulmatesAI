@@ -316,10 +316,10 @@ export function likeMoment(id: string) {
   return request<{ is_liked: number; likes: number }>(`/api/moments/${id}/like`, { method: "POST" });
 }
 
-export function commentMoment(id: string, text: string) {
+export function commentMoment(id: string, text: string, targetCharacterId?: string) {
   return request<{ userComment: any }>(`/api/moments/${id}/comment`, {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, target_character_id: targetCharacterId }),
   });
 }
 

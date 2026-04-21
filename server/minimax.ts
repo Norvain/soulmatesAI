@@ -199,18 +199,22 @@ export async function chatCompletionM27(
 export interface IntentResult {
   need_image: boolean;
   image_prompt?: string;
+  subject?: "self" | "with_self" | "none";
 }
 
 /**
  * Use M2.7 to detect user intent based on conversation context.
- * Determines if image generation is needed and what exactly to generate.
+ * Determines if image generation is needed, what to generate, and whether
+ * the character themselves should appear (in which case the appearance
+ * card is prepended to lock identity consistency).
  */
 export async function detectIntent(
   userText: string,
   conversationContext: string,
   charName: string,
   charPersona: string,
-  charOverview: string
+  charOverview: string,
+  charAppearance: string = ""
 ): Promise<IntentResult> {
   const systemPrompt = `You are an intent classifier. Based on the conversation context and the user's latest message, determine if the user is requesting to see an image/photo.
 
@@ -221,33 +225,51 @@ Image requests include:
 - Asking the character to share/send a photo of anything
 
 Return ONLY valid JSON (no markdown, no extra text):
-{"need_image": true/false, "image_prompt": "detailed English prompt"}
+{"need_image": true/false, "image_prompt": "detailed Chinese or English prompt", "subject": "self" | "with_self" | "none"}
 
-If need_image is true, generate a detailed English image prompt that matches EXACTLY what the user wants to see based on the conversation:
-- If user wants to see the character → portrait of ${charName} (${charPersona}), ${charOverview || "attractive young person"}
-- If user wants scenery/landscape → describe the scenery matching the conversation topic
-- If user wants food/object/place → describe that specific thing
-- Always add: high quality, photorealistic, warm lighting, detailed
+Subject classification rules (only meaningful when need_image is true):
+- "self": user wants a portrait/selfie of ${charName} themselves — face, outfit, look. Identity must be locked.
+- "with_self": ${charName} appears in the scene but is not the sole focus (e.g., "拍一下你做的菜，最好你也入镜"、"你画稿的样子"). Identity must still be locked.
+- "none": image is unrelated to the character's appearance — pure scenery, food, objects, third parties (e.g., "今晚做的汤"、"窗外的雨"). Free generation.
 
-If need_image is false, image_prompt should be empty string.`;
+For image_prompt:
+- If subject is "self" or "with_self" → describe ONLY the scene / pose / context (NOT the character's physical appearance — identity will be injected separately). Be concrete about action, environment, lighting, mood.
+- If subject is "none" → fully describe the target object/scenery in detail.
+- Always end with quality cues: 高清, 细节丰富, 自然光, 电影感.
+
+If need_image is false, image_prompt should be empty string and subject should be "none".`;
 
   const userContent = `Recent conversation:\n${conversationContext}\n\nUser's latest message: ${userText}`;
 
   try {
-    const raw = await chatCompletionM27(systemPrompt, userContent, { maxTokens: 300 });
+    const raw = await chatCompletionM27(systemPrompt, userContent, { maxTokens: 360 });
     const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     const match = cleaned.match(/\{[\s\S]*\}/);
     if (match) {
       const parsed = JSON.parse(match[0]);
+      const need = !!parsed.need_image;
+      const subject: IntentResult["subject"] =
+        parsed.subject === "self" || parsed.subject === "with_self" ? parsed.subject : "none";
+      let prompt = (parsed.image_prompt || "").trim();
+
+      if (need && prompt && (subject === "self" || subject === "with_self") && charAppearance) {
+        const focusHint =
+          subject === "self"
+            ? `画面主体是${charName}本人，正脸或半身入镜`
+            : `${charName}出现在场景中，需要清晰露脸`;
+        prompt = `${charAppearance}。${focusHint}。场景与动作：${prompt}`;
+      }
+
       return {
-        need_image: !!parsed.need_image,
-        image_prompt: parsed.image_prompt || "",
+        need_image: need,
+        image_prompt: prompt,
+        subject,
       };
     }
   } catch (e: any) {
     console.error("[M2.7] Intent detection failed:", e.message);
   }
-  return { need_image: false };
+  return { need_image: false, subject: "none" };
 }
 
 async function retryCall<T>(fn: () => Promise<T>): Promise<T> {

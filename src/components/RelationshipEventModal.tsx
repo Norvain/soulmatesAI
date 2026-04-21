@@ -515,6 +515,46 @@ export default function RelationshipEventModal({
 
             <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div ref={transcriptScrollRef} className="min-h-0 overflow-y-auto p-4 md:p-7 bg-page pb-[max(env(safe-area-inset-bottom),1rem)]">
+                {(mode === "session" || mode === "history") && (
+                  <div className="lg:hidden mb-4 space-y-2">
+                    <div className="rounded-2xl border border-divider bg-surface px-4 py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-muted">剧情状态</div>
+                        <div className="text-sm font-semibold text-body mt-0.5">
+                          {activeCard?.status === "completed"
+                            ? "已完成"
+                            : activeCard?.status === "in_progress"
+                              ? "进行中"
+                              : activeCard?.status === "available"
+                                ? "可进入"
+                                : "未解锁"}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-muted">最近保存</div>
+                        <div className="text-xs text-secondary mt-0.5">
+                          {formatTime(session?.last_saved_at || activeCard?.last_saved_at)}
+                        </div>
+                      </div>
+                    </div>
+                    {emotionTags.length > 0 && (
+                      <div className="rounded-2xl border border-divider bg-surface px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-muted mb-2">情绪标签</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {emotionTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2.5 py-1 rounded-full bg-surface-alt text-xs font-medium text-body border border-divider"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {mode === "loading" && (
                   <div className="h-full flex flex-col items-center justify-center text-secondary">
                     <Loader2 size={28} className="animate-spin mb-3" />
@@ -557,6 +597,28 @@ export default function RelationshipEventModal({
                 {mode === "session" && session && (
                   <div>
                     <TranscriptBlock transcript={renderedTranscript} showTyping={showTypingDots} />
+
+                    {canShowChoices && session.current_choices.length > 0 && (
+                      <div className="lg:hidden mt-5 flex flex-col items-end gap-2">
+                        {session.current_choices.map((choice) => (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => handleChoose(choice.id)}
+                            className="max-w-[86%] rounded-3xl rounded-br-md border border-stone-300 bg-white px-4 py-3 text-sm text-body text-left shadow-sm hover:border-stone-400 hover:bg-stone-50 transition-colors disabled:opacity-60"
+                          >
+                            {choice.label}
+                          </button>
+                        ))}
+                        {submitting && (
+                          <div className="flex items-center text-xs text-secondary mt-1">
+                            <Loader2 size={14} className="animate-spin mr-2" />
+                            剧情推进中…
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {shouldShowCompletionPanel && (
                       <div className="mt-8 rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-5 shadow-sm">
@@ -670,8 +732,13 @@ export default function RelationshipEventModal({
                 )}
               </div>
 
-              <div className="border-t lg:border-t-0 lg:border-l border-divider bg-surface p-5 md:p-6 overflow-y-auto">
-                <div className="rounded-[28px] bg-page px-4 py-4 border border-divider mb-4">
+              <div
+                className={cn(
+                  "border-t lg:border-t-0 lg:border-l border-divider bg-surface p-5 md:p-6 overflow-y-auto",
+                  mode !== "history" && mode !== "decision" && "hidden lg:block"
+                )}
+              >
+                <div className="rounded-[28px] bg-page px-4 py-4 border border-divider mb-4 hidden lg:block">
                   <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">剧情状态</div>
                   <div className="flex items-center justify-between text-sm text-body mb-2">
                     <span>当前状态</span>
@@ -692,7 +759,7 @@ export default function RelationshipEventModal({
                 </div>
 
                 {emotionTags.length > 0 && (
-                  <div className="rounded-[28px] bg-page px-4 py-4 border border-divider mb-4">
+                  <div className="rounded-[28px] bg-page px-4 py-4 border border-divider mb-4 hidden lg:block">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">情绪标签</div>
                     <div className="flex flex-wrap gap-2">
                       {emotionTags.map((tag) => (
@@ -705,7 +772,7 @@ export default function RelationshipEventModal({
                 )}
 
                 {canShowChoices && session && (
-                  <div className="rounded-[28px] bg-page px-4 py-4 border border-divider">
+                  <div className="rounded-[28px] bg-page px-4 py-4 border border-divider hidden lg:block">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted mb-3">选择对话</div>
                     <div className="space-y-2.5">
                       {session.current_choices.map((choice) => (
@@ -730,7 +797,7 @@ export default function RelationshipEventModal({
                 )}
 
                 {mode === "session" && session && session.current_choices.length > 0 && !canShowChoices && (
-                  <div className="rounded-[28px] bg-page px-4 py-4 border border-divider text-sm text-secondary">
+                  <div className="rounded-[28px] bg-page px-4 py-4 border border-divider text-sm text-secondary hidden lg:block">
                     当前演出尚未结束，稍后会出现可选对话。
                   </div>
                 )}
