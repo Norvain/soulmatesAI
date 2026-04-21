@@ -12,6 +12,8 @@ interface Character {
   overview: string;
   persona: string;
   greeting?: string;
+  openingStory?: string;
+  opening_story?: string;
   is_preset?: boolean;
   msg_count?: number;
 }
@@ -49,9 +51,36 @@ const SCENES = [
 ];
 
 const PRESET_CHARACTERS: Character[] = [
-  { id: "preset_lintang", name: "林棠", avatar_url: "/avatars/lintang-avatar.png", persona: "甜、暖、机灵、会撒娇、敏感、容易共情、偶尔嘴硬", overview: "邻家小妹，插画系应届毕业生。清爽、元气、亲近感强。", greeting: "那个……你家有盐吗？我煮汤煮到一半才发现用完了。", is_preset: true },
-  { id: "preset_guchengze", name: "顾承泽", avatar_url: "/avatars/guchengze-avatar.png", persona: "强势、果断、占有欲、护短、克制、低情绪外显、高标准", overview: "霸道总裁，科技公司创始人兼 CEO。冷峻、利落、压迫感强。", greeting: "别怕，最多几分钟。", is_preset: true },
-  { id: "preset_shenzhiyi", name: "沈知意", avatar_url: "/avatars/shenzhiyi-avatar.png", persona: "清醒、自律、会照顾人、边界感强、慕强、偶尔嘴毒、内里柔软", overview: "都市丽人，品牌策略总监。干练、漂亮、有分寸感。", greeting: "这把伞是我的。不过你要是现在冲出去，大概会淋得很狼狈。", is_preset: true },
+  {
+    id: "preset_lintang",
+    name: "林棠",
+    avatar_url: "/avatars/lintang-avatar.png",
+    persona: "甜、暖、机灵、会撒娇、敏感、容易共情、偶尔嘴硬",
+    overview: "邻家小妹，插画系应届毕业生。清爽、元气、亲近感强。",
+    greeting: "那个……你家有盐吗？我煮汤煮到一半才发现用完了。",
+    openingStory: "你搬进这栋旧公寓的第三天，隔壁总在夜里亮起一盏暖黄小灯。有人把外卖袋上的猫画成表情包，把雨伞借给楼下迷路的小孩，也会在凌晨为毕业展赶稿。那晚厨房飘出半锅番茄汤的香气，门铃响了，林棠站在门外，指尖还沾着颜料。打开门前，你们只隔着一堵墙和几次电梯里的点头；打开门后，故事从一勺盐开始。",
+    is_preset: true,
+  },
+  {
+    id: "preset_guchengze",
+    name: "顾承泽",
+    avatar_url: "/avatars/guchengze-avatar.png",
+    persona: "强势、果断、占有欲、护短、克制、低情绪外显、高标准",
+    overview: "霸道总裁，科技公司创始人兼 CEO。冷峻、利落、压迫感强。",
+    greeting: "别怕，最多几分钟。",
+    openingStory: "深夜的写字楼只剩顶层还亮着灯。你被困在故障电梯里，手机电量一点点见底，外面是刚结束融资谈判的顾承泽。他一向冷静到近乎不近人情，却在监控里看见你发白的脸色后，亲自停下会议、扯松领带走向维修间。钢索轻微震动的几分钟里，他的声音比所有警报都稳。那是你第一次知道，这个高高在上的人，护短时会把全世界都挡在门外。",
+    is_preset: true,
+  },
+  {
+    id: "preset_shenzhiyi",
+    name: "沈知意",
+    avatar_url: "/avatars/shenzhiyi-avatar.png",
+    persona: "清醒、自律、会照顾人、边界感强、慕强、偶尔嘴毒、内里柔软",
+    overview: "都市丽人，品牌策略总监。干练、漂亮、有分寸感。",
+    greeting: "这把伞是我的。不过你要是现在冲出去，大概会淋得很狼狈。",
+    openingStory: "暴雨把城市玻璃幕墙洗得发亮，你在品牌发布会后台临时救场，却被突如其来的断电困在一楼门厅。所有人都忙着撤场，只有沈知意撑着一把黑伞站在台阶上，白衬衫袖口一尘不染，眼神清醒得像能看穿所有逞强。她原本最讨厌计划外的麻烦，可那晚，她把伞柄偏向了你。雨声把她的声音压得很低，也让那句提醒显得格外像邀请。",
+    is_preset: true,
+  },
 ];
 
 interface DiscoverExploreProps {

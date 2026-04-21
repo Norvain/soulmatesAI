@@ -94,6 +94,7 @@ function getAccessibleCharacter(userId: string, characterId: string) {
       avatar_url: preset.avatarUrl,
       overview: preset.overview,
       persona: preset.persona,
+      opening_story: preset.openingStory,
     };
   }
 
@@ -378,7 +379,16 @@ router.get("/discover/search", authMiddleware, (req: AuthRequest, res: Response)
       p.overview.toLowerCase().includes(q) ||
       p.persona.toLowerCase().includes(q)
     )
-    .map(([id, p]) => ({ id, name: p.name, avatar_url: p.avatarUrl, overview: p.overview, persona: p.persona, greeting: p.greeting, is_preset: true }));
+    .map(([id, p]) => ({
+      id,
+      name: p.name,
+      avatar_url: p.avatarUrl,
+      overview: p.overview,
+      persona: p.persona,
+      greeting: p.greeting,
+      opening_story: p.openingStory,
+      is_preset: true,
+    }));
 
   const customRows = db.prepare(
     `SELECT id, name, avatar_url, overview, persona, greeting FROM characters
@@ -406,7 +416,17 @@ router.get("/discover/ranking", authMiddleware, (req: AuthRequest, res: Response
     const presetId = resolvePresetId(r.character_id);
     const preset = PRESET_MAP[presetId];
     if (preset) {
-      return { id: presetId, name: preset.name, avatar_url: preset.avatarUrl, overview: preset.overview, persona: preset.persona, msg_count: r.msg_count, is_preset: true };
+      return {
+        id: presetId,
+        name: preset.name,
+        avatar_url: preset.avatarUrl,
+        overview: preset.overview,
+        persona: preset.persona,
+        greeting: preset.greeting,
+        opening_story: preset.openingStory,
+        msg_count: r.msg_count,
+        is_preset: true,
+      };
     }
     const custom = db.prepare(
       "SELECT id, name, avatar_url, overview, persona FROM characters WHERE id = ? AND user_id = ?"
@@ -642,7 +662,7 @@ router.delete("/interaction-moments/:id", authMiddleware, (req: AuthRequest, res
 // ─── Chats ───────────────────────────────────────────────────────────
 
 router.get("/chats", authMiddleware, (req: AuthRequest, res: Response) => {
-  const rows = db.prepare(`
+  const rows = (db.prepare(`
     SELECT c.id, c.character_id, c.updated_at, c.is_connected, c.unread_ai_count, c.reply_state, c.pending_turns_count, c.proactive_silenced,
            ch.name AS character_name, ch.avatar_url AS character_avatar_url,
            ch.persona, ch.overview, ch.greeting, ch.is_custom,
@@ -654,7 +674,19 @@ router.get("/chats", authMiddleware, (req: AuthRequest, res: Response) => {
     WHERE c.user_id = ?
       AND ${ACCESSIBLE_CHAT_FILTER}
     ORDER BY datetime(c.updated_at) DESC, c.updated_at DESC
-  `).all(req.userId!, ...PRESET_IDS);
+  `).all(req.userId!, ...PRESET_IDS) as any[]).map((row) => {
+    const preset = PRESET_MAP[resolvePresetId(row.character_id)];
+    if (!preset) return row;
+    return {
+      ...row,
+      character_name: row.character_name || preset.name,
+      character_avatar_url: row.character_avatar_url || preset.avatarUrl,
+      persona: row.persona || preset.persona,
+      overview: row.overview || preset.overview,
+      greeting: row.greeting || preset.greeting,
+      opening_story: preset.openingStory,
+    };
+  });
   res.json(rows);
 });
 

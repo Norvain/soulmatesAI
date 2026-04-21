@@ -4,10 +4,22 @@ import { Loader2, MessageCircle } from "lucide-react";
 import { getChats } from "../lib/api";
 import { usePullToRefresh } from "../lib/use-pull-to-refresh";
 
-const PRESET_CHARACTERS: Record<string, { name: string; avatarUrl: string }> = {
-  preset_lintang: { name: "林棠", avatarUrl: "/avatars/lintang-avatar.png" },
-  preset_guchengze: { name: "顾承泽", avatarUrl: "/avatars/guchengze-avatar.png" },
-  preset_shenzhiyi: { name: "沈知意", avatarUrl: "/avatars/shenzhiyi-avatar.png" },
+const PRESET_CHARACTERS: Record<string, { name: string; avatarUrl: string; openingStory: string }> = {
+  preset_lintang: {
+    name: "林棠",
+    avatarUrl: "/avatars/lintang-avatar.png",
+    openingStory: "你搬进这栋旧公寓的第三天，隔壁总在夜里亮起一盏暖黄小灯。有人把外卖袋上的猫画成表情包，把雨伞借给楼下迷路的小孩，也会在凌晨为毕业展赶稿。那晚厨房飘出半锅番茄汤的香气，门铃响了，林棠站在门外，指尖还沾着颜料。打开门前，你们只隔着一堵墙和几次电梯里的点头；打开门后，故事从一勺盐开始。",
+  },
+  preset_guchengze: {
+    name: "顾承泽",
+    avatarUrl: "/avatars/guchengze-avatar.png",
+    openingStory: "深夜的写字楼只剩顶层还亮着灯。你被困在故障电梯里，手机电量一点点见底，外面是刚结束融资谈判的顾承泽。他一向冷静到近乎不近人情，却在监控里看见你发白的脸色后，亲自停下会议、扯松领带走向维修间。钢索轻微震动的几分钟里，他的声音比所有警报都稳。那是你第一次知道，这个高高在上的人，护短时会把全世界都挡在门外。",
+  },
+  preset_shenzhiyi: {
+    name: "沈知意",
+    avatarUrl: "/avatars/shenzhiyi-avatar.png",
+    openingStory: "暴雨把城市玻璃幕墙洗得发亮，你在品牌发布会后台临时救场，却被突如其来的断电困在一楼门厅。所有人都忙着撤场，只有沈知意撑着一把黑伞站在台阶上，白衬衫袖口一尘不染，眼神清醒得像能看穿所有逞强。她原本最讨厌计划外的麻烦，可那晚，她把伞柄偏向了你。雨声把她的声音压得很低，也让那句提醒显得格外像邀请。",
+  },
 };
 
 const POLL_INTERVAL = 5_000;
@@ -67,6 +79,7 @@ export default function Messages({ onSelectChat, onViewProfile }: MessagesProps)
             persona: chat.persona,
             overview: chat.overview,
             greeting: chat.greeting,
+            openingStory: chat.opening_story || preset?.openingStory,
           },
           updatedAt: chat.updated_at,
           lastMessage: chat.last_message || null,

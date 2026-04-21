@@ -186,6 +186,11 @@ function shouldShowMessageGroupTimestamp(previousMessage: Message | undefined, c
   return currentDate.getTime() - previousDate.getTime() > MESSAGE_GROUP_GAP_MS;
 }
 
+function getCharacterOpeningStory(character: any) {
+  const story = character?.openingStory || character?.opening_story;
+  return typeof story === "string" ? story.trim() : "";
+}
+
 export default function Chat({
   chatId,
   character,
@@ -914,6 +919,7 @@ export default function Chat({
   }
 
   const renderNow = new Date();
+  const openingStory = getCharacterOpeningStory(character);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-page/50">
@@ -966,6 +972,14 @@ export default function Chat({
 
       <div className="flex-1 min-h-0 relative">
         <div ref={scrollRef} className="h-full overflow-y-auto px-3 py-4 md:p-6 space-y-6 scrollbar-hide">
+          {openingStory && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+              <div className="max-w-[92%] md:max-w-[76%] rounded-2xl px-5 py-3 text-sm leading-relaxed bg-surface-alt text-secondary border border-divider-strong shadow-sm">
+                <p>（{openingStory}）</p>
+              </div>
+            </motion.div>
+          )}
+
           {messages.map((message, index) => {
             const showTimestamp = shouldShowMessageGroupTimestamp(messages[index - 1], message);
 
@@ -1115,7 +1129,7 @@ export default function Chat({
             );
           })}
 
-          {messages.length === 0 && !isTyping && (
+          {messages.length === 0 && !isTyping && !openingStory && (
             <div className="h-full flex items-center justify-center text-center text-muted text-sm">
               <div>
                 <p>这段对话暂时还没有可显示的消息。</p>
